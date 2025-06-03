@@ -90,7 +90,7 @@ def upload_and_process():
 
         except Exception as e:
             print(f"Server error during processing: {e}")
-            
+
     else:
         return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif'}), 400
 
@@ -101,7 +101,6 @@ def uploaded_file(filename):
 
 if __name__ == '__main__':
     if not os.path.exists(objects_path):
-        print(f"Creating missing 'objects' directory at: {objects_path}")
         os.makedirs(objects_path)
-    print(f"Backend running. Ensure '{UPLOAD_FOLDER}' and '{objects_path}' directories exist.")
+
     app.run(debug=True, port=5000)
