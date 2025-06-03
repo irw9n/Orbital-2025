@@ -90,9 +90,7 @@ def upload_and_process():
 
         except Exception as e:
             print(f"Server error during processing: {e}")
-            import traceback
-            traceback.print_exc() # Print full traceback for debugging
-            return jsonify({'error': f'Server processing failed: {e}'}), 500
+            
     else:
         return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif'}), 400
 
