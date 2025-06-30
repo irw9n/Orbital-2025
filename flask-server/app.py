@@ -159,26 +159,26 @@ def login():
             'total_differences_found': user.total_differences_found
         }
 
-        resp = make_response(jsonify(response_data), 200)
-        session_cookie_value = app.session_interface.get_signing_serializer(app).dumps(dict(session))
+        # resp = make_response(jsonify(response_data), 200)
+        # session_cookie_value = app.session_interface.get_signing_serializer(app).dumps(dict(session))
 
-        resp.set_cookie(
-            app.config['SESSION_COOKIE_NAME'],
-            session_cookie_value,
-            expires=datetime.now() + app.permanent_session_lifetime,
-            httponly=True,
-            secure=app.config['SESSION_COOKIE_SECURE'],
-            samesite=app.config['SESSION_COOKIE_SAMESITE'],
-            path=app.config.get('SESSION_COOKIE_PATH', '/')
-        )
+        # resp.set_cookie(
+        #     app.config['SESSION_COOKIE_NAME'],
+        #     session_cookie_value,
+        #     expires=datetime.now() + app.permanent_session_lifetime,
+        #     httponly=True,
+        #     secure=app.config['SESSION_COOKIE_SECURE'],
+        #     samesite=app.config['SESSION_COOKIE_SAMESITE'],
+        #     path=app.config.get('SESSION_COOKIE_PATH', '/')
+        # )
 
-        print(f"DEBUG: Manually setting Set-Cookie header. Value starts with: {session_cookie_value[:20]}...", file=sys.stderr)
-        print(f"DEBUG: Set-Cookie header on response object: {resp.headers.get('Set-Cookie')}", file=sys.stderr)
-        print(f"DEBUG: Session cookie attributes: Secure={app.config['SESSION_COOKIE_SECURE']}, SameSite={app.config['SESSION_COOKIE_SAMESITE']}, Domain={app.config.get('SESSION_COOKIE_DOMAIN')}, Path={app.config.get('SESSION_COOKIE_PATH', '/')}", file=sys.stderr)
+        # print(f"DEBUG: Manually setting Set-Cookie header. Value starts with: {session_cookie_value[:20]}...", file=sys.stderr)
+        # print(f"DEBUG: Set-Cookie header on response object: {resp.headers.get('Set-Cookie')}", file=sys.stderr)
+        # print(f"DEBUG: Session cookie attributes: Secure={app.config['SESSION_COOKIE_SECURE']}, SameSite={app.config['SESSION_COOKIE_SAMESITE']}, Domain={app.config.get('SESSION_COOKIE_DOMAIN')}, Path={app.config.get('SESSION_COOKIE_PATH', '/')}", file=sys.stderr)
 
-        return resp
+        # return resp
 
-
+        return jsonify(response_data), 200
 
         # return jsonify({
         #     'message': 'Login successful!',
@@ -199,7 +199,7 @@ def logout():
     return jsonify({'message': 'Logged out successfully!'}), 200
 
 @app.route('/user_profile', methods=['GET'])
-@login_required # protect this route
+@login_required 
 def user_profile():
     print(f"DEBUG: Accessing user_profile for {current_user.username}.", file=sys.stderr)
     return jsonify({
@@ -210,7 +210,7 @@ def user_profile():
     }), 200
 
 @app.route('/update_stats', methods=['POST'])
-@login_required # Only logged-in users can update stats
+@login_required  
 def update_stats():
     print(f"DEBUG: Updating stats for user {current_user.username}.", file=sys.stderr)
     data = request.get_json()
