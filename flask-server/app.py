@@ -55,8 +55,11 @@ class User(UserMixin, db.Model):
 
 @login_manager.unauthorized_handler
 def unauthorized():
-    if request.is_xhr or request.accept_mimetypes.accept_json:
+    is_ajax_request = request.accept_mimetypes.accept_json or 'application/json' in request.headers.get('Content-Type', '')
+
+    if is_ajax_request:
         return jsonify({'error': 'Unauthorized: Please log in to access this resource.'}), 401
+    
     return app.redirect(login_manager.login_view)
 
 #user loader for flask-login
