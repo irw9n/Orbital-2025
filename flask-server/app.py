@@ -17,6 +17,11 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'supersecretkey')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://user:password@localhost:5432/spot_the_diff_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+ALLOWED_ORIGINS = os.environ.get(
+    'CORS_ORIGINS',
+    'http://localhost:5173,http://127.0.0.1:5173' # Local development origins
+).split(',')
+
 CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}})
 db = SQLAlchemy(app)
 
