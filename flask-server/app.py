@@ -155,12 +155,9 @@ def login():
             'total_differences_found': user.total_differences_found
         }
 
-        resp = make_response(jsonify(response_data), 200)
 
-        print(f"DEBUG: Set-Cookie header being sent (if any): {resp.headers.get('Set-Cookie')}", file=sys.stderr)
-        print(f"DEBUG: Session cookie attributes: Secure={app.config['SESSION_COOKIE_SECURE']}, SameSite={app.config['SESSION_COOKIE_SAMESITE']}", file=sys.stderr)
 
-        return resp
+        return jsonify(response_data), 200
 
         # return jsonify({
         #     'message': 'Login successful!',
