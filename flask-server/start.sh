@@ -1,6 +1,6 @@
 set -e
 
-source .venv/bin/activate
+export PATH="/opt/render/project/src/flask-server/.venv/bin:$PATH"
 
 echo "Running database table creation (db.create_all())..."
 
