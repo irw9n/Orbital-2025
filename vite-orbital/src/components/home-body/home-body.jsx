@@ -425,7 +425,7 @@
 
             try {
                 await axios.post(`${BACKEND_URL}/update_stats`, {
-                    differencesFound: updatedFoundDifferencesSet.size,
+                    differencesFound: currentFoundCount,
                     gameWon: true
                 });
 
