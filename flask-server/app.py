@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import random
 from datetime import datetime, timedelta
+import traceback
 
 from image_processing import apply_contour_manipulation, apply_object_addition
 
@@ -241,6 +242,7 @@ def upload_and_process():
 
         except Exception as e:
             print(f"Server error during processing: {e}")
+            return jsonify({'error': f'Server processing failed: {e}'}), 500
 
     else:
         return jsonify({'error': 'Invalid file type. Allowed: png, jpg, jpeg, gif'}), 400
