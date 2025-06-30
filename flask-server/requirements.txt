@@ -1,6 +1,9 @@
 Flask==3.1.1
 flask_cors==6.0.0
+Flask_Login==0.6.3
+flask_sqlalchemy==3.1.1
 matplotlib==3.10.3
-numpy==2.2.6
+numpy==2.3.1
 opencv_python==4.11.0.86
-scikit_learn==1.6.1
+scikit_learn==1.7.0
+Werkzeug==3.1.3
