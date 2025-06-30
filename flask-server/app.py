@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
@@ -7,7 +7,7 @@ import os
 import cv2
 import numpy as np
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from image_processing import apply_contour_manipulation, apply_object_addition
 
@@ -16,6 +16,10 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'supersecretkey')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://user:password@localhost:5432/spot_the_diff_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 
 ALLOWED_ORIGINS = os.environ.get(
     'CORS_ORIGINS',
@@ -125,7 +129,9 @@ def login():
     user = User.query.filter_by(username=username).first()
 
     if user and user.check_password(password):
-        login_user(user) # Log in the user
+        login_user(user) # log in the user
+        session.permanent = True # make session permanent
+
         return jsonify({
             'message': 'Login successful!',
             'username': user.username,
