@@ -164,7 +164,7 @@ def login():
         resp.set_cookie(
             app.config['SESSION_COOKIE_NAME'],
             session_cookie_value,
-            expires=app.permanent_session_lifetime,
+            expires=datetime.now() + app.permanent_session_lifetime,
             httponly=True,
             secure=app.config['SESSION_COOKIE_SECURE'],
             samesite=app.config['SESSION_COOKIE_SAMESITE'],
