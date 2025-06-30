@@ -5,7 +5,10 @@
     import { Image as ImageIcon, Edit, User as UserIcon, LogIn, LogOut, Award } from 'lucide-react';
     import { v4 as uuidv4 } from 'uuid';
 
-    const BACKEND_URL = 'http://localhost:5000'; // Connecting to Flask backend
+    // const BACKEND_URL = 'http://localhost:5000'; // Connecting to Local Flask backend
+    // const BACKEND_URL = 'https://orbital-2025-backend.onrender.com'; // Connecting to Local Flask backend
+    const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://orbital-2025-backend.onrender.com'; //for vercel deployment
+
 
     axios.defaults.withCredentials = true; // Enable sending cookies with requests
 
@@ -15,6 +18,13 @@
     const [authMessage, setAuthMessage] = useState('');
     const [authError, setAuthError] = useState('');
     const [activeTab, setActiveTab] = useState('login');
+
+    const [regUsername, setRegUsername] = useState('');
+    const [regEmail, setRegEmail] = useState('');
+    const [regPassword, setRegPassword] = useState('');
+
+    const [logUsername, setLogUsername] = useState('');
+    const [logPassword, setLogPassword] = useState('');
 
     const [selectedFile, setSelectedFile] = useState(null);
     const [originalImageUrl, setOriginalImageUrl] = useState('');
@@ -152,10 +162,19 @@
         setCurrentUser(response.data);
         setAuthMessage(`Welcome back, ${response.data.username}!`);
       } catch (err) {
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        setAuthMessage('Please log in or register to play.');
-        setAuthError(''); // Clear any previous auth errors on initial check
+        if (err.reponse && err.response.status === 401) {
+            setIsLoggedIn(false);
+            setCurrentUser(null);
+            setAuthMessage('Please log in or register to play.');
+            setAuthError(''); // Clear any previous auth errors on initial check
+        }
+        else {
+            console.error("Error checking login status:", err);
+            setIsLoggedIn(false);
+            setCurrentUser(null);
+            setAuthMessage('An error occurred. Please try again later.');
+            setAuthError(err.response?.data?.error || "Failed to check login status.");
+        }
       }
     };
     checkLoginStatus();}, []);
@@ -164,21 +183,24 @@
         event.preventDefault();
         setAuthMessage('');
         setAuthError('');
-        const form = event.target;
-        const username = form.elements.username.value;
-        const email = form.elements.email.value;
-        const password = form.elements.password.value;
+        
 
-        if (!username || !email || !password) {
+        if (!regUsername  || !regEmail || !regPassword) {
             setAuthError('All fields are required for registration.');
             return;
         }
 
         try {
-            const response = await axios.post(`${BACKEND_URL}/register`, { username, email, password });
+            const response = await axios.post(`${BACKEND_URL}/register`, { 
+                username: regUsername, 
+                email: regEmail, 
+                password: regPassword
+            });
             setAuthMessage(response.data.message + " You can now log in.");
             setActiveTab('login');
-            form.reset();
+            setRegUsername('');
+            setRegEmail('');
+            setRegPassword('');
         }
         catch (err) {
             console.error("Registration error:", err);
@@ -190,20 +212,25 @@
         event.preventDefault();
         setAuthMessage('');
         setAuthError('');
-        const form = event.target;
-        const username = form.elements.username.value;
-        const password = form.elements.password.value;
+        
 
-        if (!username || !password) {
+        if (!logUsername || !logPassword) {
             setAuthError('Username and password are required for login.');
             return;
         }
 
         try {
-            const response = await axios.post(`${BACKEND_URL}/login`, { username, password });
+            const response = await axios.post(`${BACKEND_URL}/login`, { 
+                username: logUsername, 
+                password: logPassword  
+            });
+
             setIsLoggedIn(true);
             setCurrentUser(response.data);
             setAuthMessage(response.data.message);
+
+            setLogUsername('');
+            setLogPassword('');
 
             setSelectedFile(null);
             setOriginalImageUrl('');
@@ -375,7 +402,13 @@
         // --- Game Logic ---
         if (isCorrectClick) {
         if (foundDiffId) {
-            setFoundDifferences(prev => new Set(prev).add(foundDiffId));
+            const updatedFoundDifferencesSet = new Set(foundDifferences);
+            updatedFoundDifferencesSet.add(foundDiffId);
+
+            setFoundDifferences(updatedFoundDifferencesSet);
+
+            const currentFoundCount = updatedFoundDifferencesSet.size;
+
             setClickAttempts(prev => [...prev, {
                 x: clickX_display, 
                 y: clickY_display,
@@ -384,7 +417,7 @@
             setMessage("Difference found! Keep going!");
 
             // Check if all differences are found
-            if (foundDifferences.size + 1 === differences.length) { 
+            if (currentFoundCount === differences.length) { 
             setMessage("Congratulations! You found all the differences!");
             setGameStarted(false); // End game
 
@@ -465,11 +498,13 @@
                 <Form onSubmit={handleLogin} className="mt-3">
                     <Form.Group className="mb-3" controlId="loginUsername">
                     <Form.Label>Username</Form.Label>
-                    <Form.Control type="text" placeholder="Enter username" required />
+                    <Form.Control type="text" placeholder="Enter username" required value={logUsername}
+                    onChange={(e) => setLogUsername(e.target.value)}/>
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="loginPassword">
                     <Form.Label>Password</Form.Label>
-                    <Form.Control type="password" placeholder="Password" required />
+                    <Form.Control type="password" placeholder="Password" required value={logPassword}
+                    onChange={(e) => setLogPassword(e.target.value)}/>
                     </Form.Group>
                     <Button variant="primary" type="submit">Login</Button>
                 </Form>
@@ -478,15 +513,18 @@
                 <Form onSubmit={handleRegister} className="mt-3">
                     <Form.Group className="mb-3" controlId="registerUsername">
                     <Form.Label>Username</Form.Label>
-                    <Form.Control type="text" placeholder="Choose a username" required />
+                    <Form.Control type="text" placeholder="Choose a username" required value={regUsername} 
+                    onChange={(e) => setRegUsername(e.target.value)}/>
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="registerEmail">
                     <Form.Label>Email address</Form.Label>
-                    <Form.Control type="email" placeholder="Enter email" required />
+                    <Form.Control type="email" placeholder="Enter email" required value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}/>
                     </Form.Group>
                     <Form.Group className="mb-3" controlId="registerPassword">
                     <Form.Label>Password</Form.Label>
-                    <Form.Control type="password" placeholder="Password" required />
+                    <Form.Control type="password" placeholder="Password" required value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}/>
                     <Form.Text className="text-muted">
                         Your password must be at least 6 characters long.
                     </Form.Text>
