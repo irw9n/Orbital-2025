@@ -22,7 +22,9 @@ ALLOWED_ORIGINS = os.environ.get(
     'http://localhost:5173,http://127.0.0.1:5173' # Local development origins
 ).split(',')
 
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}})
+print(f"DEBUG: Flask-CORS configured with origins: {ALLOWED_ORIGINS}")
+
+CORS(app, supports_credentials=True, origins=ALLOWED_ORIGINS)
 db = SQLAlchemy(app)
 
 login_manager = LoginManager()
