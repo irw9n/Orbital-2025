@@ -1,13 +1,21 @@
     import React, { useState, useRef, useEffect, useCallback } from 'react';
     import './home-body.css';
-    import { Container, Row, Col, Form, Button, Card, Spinner, Alert } from 'react-bootstrap';
+    import { Container, Row, Col, Form, Button, Card, Spinner, Alert, Tabs, Tab } from 'react-bootstrap';
     import axios from 'axios';
-    import { Image as ImageIcon, Edit } from 'lucide-react';
+    import { Image as ImageIcon, Edit, User as UserIcon, LogIn, LogOut, Award } from 'lucide-react';
     import { v4 as uuidv4 } from 'uuid';
 
     const BACKEND_URL = 'http://localhost:5000'; // Connecting to Flask backend
 
+    axios.defaults.withCredentials = true; // Enable sending cookies with requests
+
     function Homebody() {
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [authMessage, setAuthMessage] = useState('');
+    const [authError, setAuthError] = useState('');
+    const [activeTab, setActiveTab] = useState('login');
+
     const [selectedFile, setSelectedFile] = useState(null);
     const [originalImageUrl, setOriginalImageUrl] = useState('');
     const [modifiedImageUrl, setModifiedImageUrl] = useState('');
@@ -135,6 +143,106 @@
         };
     }, [originalImageUrl]);
 
+    useEffect(() => {
+    const checkLoginStatus = async () => {
+      try {
+        // This endpoint will return user profile if logged in, or 401 if not
+        const response = await axios.get(`${BACKEND_URL}/user_profile`);
+        setIsLoggedIn(true);
+        setCurrentUser(response.data);
+        setAuthMessage(`Welcome back, ${response.data.username}!`);
+      } catch (err) {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+        setAuthMessage('Please log in or register to play.');
+        setAuthError(''); // Clear any previous auth errors on initial check
+      }
+    };
+    checkLoginStatus();}, []);
+
+    const handleRegister = async (event) => {
+        event.preventDefault();
+        setAuthMessage('');
+        setAuthError('');
+        const form = event.target;
+        const username = form.elements.username.value;
+        const email = form.elements.email.value;
+        const password = form.elements.password.value;
+
+        if (!username || !email || !password) {
+            setAuthError('All fields are required for registration.');
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${BACKEND_URL}/register`, { username, email, password });
+            setAuthMessage(response.data.message + " You can now log in.");
+            setActiveTab('login');
+            form.reset();
+        }
+        catch (err) {
+            console.error("Registration error:", err);
+            setAuthError('Registration error. Please try again.');
+        }
+    };
+
+    const handleLogin = async (event) => {
+        event.preventDefault();
+        setAuthMessage('');
+        setAuthError('');
+        const form = event.target;
+        const username = form.elements.username.value;
+        const password = form.elements.password.value;
+
+        if (!username || !password) {
+            setAuthError('Username and password are required for login.');
+            return;
+        }
+
+        try {
+            const response = await axios.post(`${BACKEND_URL}/login`, { username, password });
+            setIsLoggedIn(true);
+            setCurrentUser(response.data);
+            setAuthMessage(response.data.message);
+
+            setSelectedFile(null);
+            setOriginalImageUrl('');
+            setModifiedImageUrl('');
+            setDifferences([]);
+            setFoundDifferences(new Set());
+            setClickAttempts([]);
+            setMessage('');
+            setError('');
+            setGameStarted(false);
+        }
+        catch (err) {
+            console.error("Login error:", err);
+            setAuthError("Login failed. Please check your credentials.");
+        }
+    };
+
+    const handleLogout = async () => {
+        try {
+            await axios.post(`${BACKEND_URL}/logout`);
+            setIsLoggedIn(false);
+            setCurrentUser(null);
+            setAuthMessage("You have been logged out.");
+            setAuthError('');
+            setSelectedFile(null);
+            setOriginalImageUrl('');
+            setModifiedImageUrl('');
+            setDifferences([]);
+            setFoundDifferences(new Set());
+            setClickAttempts([]);
+            setMessage('');
+            setError('');
+            setGameStarted(false);
+        }
+        catch (err) {
+            console.error("Logout error:", err);
+            setAuthError("Logout failed.");
+        }
+    };
 
     const handleFileChange = (event) => {
         const file = event.target.files[0];
@@ -162,6 +270,11 @@
         if (!selectedFile) {
         setError("Please select an image file first.");
         return;
+        }
+
+        if (!isLoggedIn) {
+            setError("Please login to upload an image.");
+            return;
         }
 
         setLoading(true);
@@ -200,6 +313,8 @@
         setClickAttempts([]); // Reset click attempts for new game
         setFoundDifferences(new Set()); // Reset found differences for new game
 
+        const profileResponse = await axios.get(`${BACKEND_URL}/user_profile`);
+        setCurrentUser(profileResponse.data); // Update current user profile after upload
         } catch (err) {
         console.error("Error uploading or processing image:", err);
         if (err.response && err.response.data && err.response.data.error) {
@@ -214,7 +329,7 @@
     };
 
     // Handle click on the modified image
-    const handleImageClick = (event) => {
+    const handleImageClick = async (event) => {
         if (!gameStarted || foundDifferences.size === differences.length || clickAttempts.filter(a => a.type === 'wrong').length >= MAX_WRONG_CLICKS) {
         // Don't allow clicks if game not started, finished, or too many wrong clicks
         return;
@@ -243,7 +358,7 @@
         if (!foundDifferences.has(diff.id)) { 
             const [x1, y1, x2, y2] = diff.coords; 
 
-            const tolerance = 10; 
+            const tolerance = 15; 
             if (
             clickX_natural >= (x1 - tolerance) &&
             clickX_natural <= (x2 + tolerance) &&
@@ -274,6 +389,21 @@
             setGameStarted(false); // End game
 
             setTimeout(() => drawCircles(), 50); 
+
+            try {
+                await axios.post(`${BACKEND_URL}/update_stats`, {
+                    differencesFound: newFoundDifferences.size,
+                    gameWon: true
+                });
+
+                const profileResponse = await axios.get(`${BACKEND_URL}/user_profile`);
+                setCurrentUser(profileResponse.data);
+                setAuthMessage(prev => prev + " Your stats have been updated!");
+            } catch (err) {
+                console.error("Failed to update stats:", err);
+                setError("Failed to update game statistics.");
+            }
+            
             }
         }
         } else {
@@ -297,6 +427,20 @@
             setFoundDifferences(new Set(differences.map(d => d.id))); // Reveal all differences
             
             setTimeout(() => drawCircles(), 50); // Trigger redraw to show all highlights immediately
+            
+            try {
+                await axios.post(`${BACKEND_URL}/update_stats`, {
+                    differencesFound: foundDifferences.size, // Only count differences actually found
+                    gameWon: false
+                });
+
+                const profileResponse = await axios.get(`${BACKEND_URL}/user_profile`);
+                setCurrentUser(profileResponse.data);
+                setAuthMessage(prev => prev + " Your stats have been updated!");
+            } catch (err) {
+                console.error("Failed to update stats:", err);
+                setError("Failed to update game statistics.");
+            }
         }
         }
     };
@@ -308,90 +452,177 @@
 
     return (
         <Container className="my-5">
-        {/* Main Control Card (for file selection and messages) */}
-        <Row className="mb-3 justify-content-center">
-            <Col md={12}>
-                {error && <Alert variant="danger">{error}</Alert>}
-                {message && <Alert variant="info">{message}</Alert>}
-            </Col>
-        </Row>
 
-        <Row className="justify-content-center">
-            {/* Left Image Card: Original Image */}
-            <Col md={6} className="mb-3">
-            <Card className="h-100 shadow-sm">
+        {/* Authentication and Messages Card */}
+        <Card className="p-4 shadow-sm mb-4">
+            {authError && <Alert variant="danger" className="mt-3">{authError}</Alert>}
+            {authMessage && <Alert variant="info" className="mt-3">{authMessage}</Alert>}
+
+            {!isLoggedIn ? (
+            // Login/Register Tabs if not logged in
+            <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
+                <Tab eventKey="login" title={<span><LogIn size={16} className="me-2" />Login</span>}>
+                <Form onSubmit={handleLogin} className="mt-3">
+                    <Form.Group className="mb-3" controlId="loginUsername">
+                    <Form.Label>Username</Form.Label>
+                    <Form.Control type="text" placeholder="Enter username" required />
+                    </Form.Group>
+                    <Form.Group className="mb-3" controlId="loginPassword">
+                    <Form.Label>Password</Form.Label>
+                    <Form.Control type="password" placeholder="Password" required />
+                    </Form.Group>
+                    <Button variant="primary" type="submit">Login</Button>
+                </Form>
+                </Tab>
+                <Tab eventKey="register" title={<span><UserIcon size={16} className="me-2" />Register</span>}>
+                <Form onSubmit={handleRegister} className="mt-3">
+                    <Form.Group className="mb-3" controlId="registerUsername">
+                    <Form.Label>Username</Form.Label>
+                    <Form.Control type="text" placeholder="Choose a username" required />
+                    </Form.Group>
+                    <Form.Group className="mb-3" controlId="registerEmail">
+                    <Form.Label>Email address</Form.Label>
+                    <Form.Control type="email" placeholder="Enter email" required />
+                    </Form.Group>
+                    <Form.Group className="mb-3" controlId="registerPassword">
+                    <Form.Label>Password</Form.Label>
+                    <Form.Control type="password" placeholder="Password" required />
+                    <Form.Text className="text-muted">
+                        Your password must be at least 6 characters long.
+                    </Form.Text>
+                    </Form.Group>
+                    <Button variant="primary" type="submit">Register</Button>
+                </Form>
+                </Tab>
+            </Tabs>
+            ) : (
+            // User profile and file upload UI if logged in
+            <>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                <h5>Hello, {currentUser?.username || 'Guest'}!</h5>
+                <Button variant="outline-danger" size="sm" onClick={handleLogout}>
+                    <LogOut size={16} className="me-2" />Logout
+                </Button>
+                </div>
+                <Card className="p-4 mb-4">
+                <h6><Award size={20} className="me-2" />Your Stats:</h6>
+                <p className="mb-0">Games Played: {currentUser?.games_played}</p>
+                <p className="mb-0">Games Won: {currentUser?.games_won}</p>
+                <p>Total Differences Found: {currentUser?.total_differences_found}</p>
+                <hr/> {/* Separator */}
+                {/* File input and upload button moved here */}
                 <Form>
                     {/* Hidden file input */}
                     <Form.Control
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        ref={fileInputRef}
-                        className="d-none" 
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    ref={fileInputRef}
+                    className="d-none" // Hide the default file input
                     />
+                    {/* Visible File Selection UI */}
+                    <Form.Group controlId="formFile" className="mb-3 d-flex align-items-center">
+                    <Form.Label className="mb-0 me-3">Select your image:</Form.Label>
+                    <Button variant="primary" onClick={triggerFileInput} disabled={loading} className="me-2">
+                        Browse Image
+                    </Button>
+                    {selectedFile && <span className="ms-3 text-muted text-truncate" style={{ maxWidth: '200px' }}>Selected: {selectedFile.name}</span>}
+                    </Form.Group>
                 </Form>
-                <Card.Header className="text-center bg-dark text-white">Original Image</Card.Header>
-                <Card.Body style={cardBodyStyle}>
-                {originalImageUrl ? (
-                    <img key={originalImageUrl} src={originalImageUrl} alt="Original" className="img-fluid" style={imageStyle} />
-                ) : (
-                    <div className="text-center text-muted d-flex flex-column align-items-center">
-                    <ImageIcon size={64} className="mb-3" />
-                    <Button variant="link" className="p-0 border-0 text-decoration-none" onClick={triggerFileInput}>
-                        <p className="mb-0">Upload an image to begin</p>
-                    </Button>
-                    </div>
-                )}
-                </Card.Body>
-            </Card>
-            </Col>
+                </Card>
+            </>
+            )}
+        </Card>
+        
 
-            {/* Right Image Card: Modified Image */}
-            <Col md={6} className="mb-3">
-            <Card className="h-100 shadow-sm">
-                <Card.Header className="text-center bg-primary text-white">Modified Image (Click on the image below!)</Card.Header>
-                <Card.Body style={{ ...cardBodyStyle, position: 'relative' }}>
-                {modifiedImageUrl ? (
-                    <>
-                    <img
-                        ref={modifiedImageRef}
-                        key={modifiedImageUrl}
-                        src={modifiedImageUrl}
-                        alt="Modified"
-                        className="img-fluid"
-                        style={{ ...imageStyle, cursor: gameStarted && foundDifferences.size < differences.length && clickAttempts.filter(a => a.type === 'wrong').length < MAX_WRONG_CLICKS ? 'pointer' : 'default' }}
-                        onClick={handleImageClick}
-                    />
-                    <canvas
-                        ref={canvasRef}
-                        style={{
-                        position: 'absolute',
-                        top: '5%',
-                        left: '5%', 
-                        width: '90%',
-                        height: '90%', 
-                        pointerEvents: 'none',
-                        }}
-                    />
-                    </>
-                ) : (
-                    <div className="text-center text-muted d-flex flex-column align-items-center">
-                    <Edit size={64} className="mb-3" />
-                    <p className="mb-0">Modified image will appear here</p>
-                    <Button
-                        variant="success"
-                        onClick={handleUpload}
-                        disabled={!selectedFile || loading} 
-                        className="mt-3"
-                    >
-                        {loading ? <Spinner animation="border" size="sm" /> : 'Generate Modified Image'}
-                    </Button>
-                    </div>
-                )}
-                </Card.Body>
-            </Card>
-            </Col>
-        </Row>
+        {/* Main Control Card (for file selection and messages) (only shown if logged in) */}
+        { isLoggedIn && (
+        <>
+            <Row className="mb-3 justify-content-center">
+                <Col md={12}>
+                    {error && <Alert variant="danger">{error}</Alert>}
+                    {message && <Alert variant="info">{message}</Alert>}
+                </Col>
+            </Row>
+
+            <Row className="justify-content-center">
+                {/* Left Image Card: Original Image */}
+                <Col md={6} className="mb-3">
+                <Card className="h-100 shadow-sm">
+                    <Form>
+                        {/* Hidden file input */}
+                        <Form.Control
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            ref={fileInputRef}
+                            className="d-none" 
+                        />
+                    </Form>
+                    <Card.Header className="text-center bg-dark text-white">Original Image</Card.Header>
+                    <Card.Body style={cardBodyStyle}>
+                    {originalImageUrl ? (
+                        <img key={originalImageUrl} src={originalImageUrl} alt="Original" className="img-fluid" style={imageStyle} />
+                    ) : (
+                        <div className="text-center text-muted d-flex flex-column align-items-center">
+                        <ImageIcon size={64} className="mb-3" />
+                        <Button variant="link" className="p-0 border-0 text-decoration-none" onClick={triggerFileInput}>
+                            <p className="mb-0">Upload an image to begin</p>
+                        </Button>
+                        </div>
+                    )}
+                    </Card.Body>
+                </Card>
+                </Col>
+
+                {/* Right Image Card: Modified Image */}
+                <Col md={6} className="mb-3">
+                <Card className="h-100 shadow-sm">
+                    <Card.Header className="text-center bg-primary text-white">Modified Image (Click on the image below!)</Card.Header>
+                    <Card.Body style={{ ...cardBodyStyle, position: 'relative' }}>
+                    {modifiedImageUrl ? (
+                        <>
+                        <img
+                            ref={modifiedImageRef}
+                            key={modifiedImageUrl}
+                            src={modifiedImageUrl}
+                            alt="Modified"
+                            className="img-fluid"
+                            style={{ ...imageStyle, cursor: gameStarted && foundDifferences.size < differences.length && clickAttempts.filter(a => a.type === 'wrong').length < MAX_WRONG_CLICKS ? 'pointer' : 'default' }}
+                            onClick={handleImageClick}
+                        />
+                        <canvas
+                            ref={canvasRef}
+                            style={{
+                            position: 'absolute',
+                            top: '5%',
+                            left: '5%', 
+                            width: '90%',
+                            height: '90%', 
+                            pointerEvents: 'none',
+                            }}
+                        />
+                        </>
+                    ) : (
+                        <div className="text-center text-muted d-flex flex-column align-items-center">
+                        <Edit size={64} className="mb-3" />
+                        <p className="mb-0">Modified image will appear here</p>
+                        <Button
+                            variant="success"
+                            onClick={handleUpload}
+                            disabled={!selectedFile || loading} 
+                            className="mt-3"
+                        >
+                            {loading ? <Spinner animation="border" size="sm" /> : 'Generate Modified Image'}
+                        </Button>
+                        </div>
+                    )}
+                    </Card.Body>
+                </Card>
+                </Col>
+            </Row>
+        </>
+        )}
         </Container>
     );
     }

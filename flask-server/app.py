@@ -1,5 +1,8 @@
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import cv2
 import numpy as np
@@ -9,7 +12,43 @@ from datetime import datetime
 from image_processing import apply_contour_manipulation, apply_object_addition
 
 app = Flask(__name__)
-CORS(app) 
+
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'supersecretkey')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://user:password@localhost:5432/spot_the_diff_db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5173"}})
+db = SQLAlchemy(app)
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+#User class: better for authentication
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
+
+    #game statistics
+    games_played = db.Column(db.Integer, default=0)
+    games_won = db.Column(db.Integer, default=0)
+    total_differences_found = db.Column(db.Integer, default=0) 
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f'<User {self.username}>'
+    
+#user loader for flask-login
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 UPLOAD_FOLDER = 'uploads' # Directory to save uploaded and processed images
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
@@ -28,7 +67,95 @@ if not os.path.exists(objects_path):
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+#Authentication routes
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    username = data.get('username')
+    email = data.get('email')
+    password = data.get('password')
+
+    if not username or not email or not password:
+        return jsonify({'error': 'All fields are required'}), 400
+    
+    if User.query.filter_by(username=username).first():
+        return jsonify({'error': 'Username already exists'}), 409
+    
+    if User.query.filter_by(email=email).first():
+        return jsonify({'error': 'Email already registered'}), 409
+    
+    new_user = User(username=username, email=email)
+    new_user.set_password(password)
+    
+    try:
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({'message': 'Registration successful! Please log in.'}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error during registration: {e}")
+        return jsonify({'error': 'An error occurred during registration.'}), 500
+    
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+
+    if user and user.check_password(password):
+        login_user(user) # Log in the user
+        return jsonify({
+            'message': 'Login successful!',
+            'username': user.username,
+            'games_played': user.games_played,
+            'games_won': user.games_won,
+            'total_differences_found': user.total_differences_found
+        }), 200
+    else:
+        return jsonify({'error': 'Invalid username or password'}), 401
+    
+@app.route('/logout', methods=['POST'])
+@login_required # Requires user to be logged in to logout
+def logout():
+    logout_user()
+    return jsonify({'message': 'Logged out successfully!'}), 200
+
+@app.route('/user_profile', methods=['GET'])
+@login_required # protect this route
+def user_profile():
+    return jsonify({
+        'username': current_user.username,
+        'games_played': current_user.games_played,
+        'games_won': current_user.games_won,
+        'total_differences_found': current_user.total_differences_found
+    }), 200
+
+@app.route('/update_stats', methods=['POST'])
+@login_required # Only logged-in users can update stats
+def update_stats():
+    data = request.get_json()
+    differences_found = data.get('differencesFound', 0)
+    game_won = data.get('gameWon', False)
+
+    try:
+        current_user.games_played += 1
+        current_user.total_differences_found += differences_found
+        if game_won:
+            current_user.games_won += 1
+        
+        db.session.commit()
+        return jsonify({'message': 'Stats updated successfully!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Database error during stats update: {e}")
+        return jsonify({'error': 'Failed to update stats.'}), 500
+
 @app.route('/upload-and-process', methods=['POST'])
+@login_required 
 def upload_and_process():
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
@@ -100,6 +227,10 @@ def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        print("Database tables checked/created.")
+
     if not os.path.exists(objects_path):
         os.makedirs(objects_path)
 
