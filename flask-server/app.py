@@ -25,6 +25,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_DOMAIN'] = None
 
 ALLOWED_ORIGINS = os.environ.get(
     'CORS_ORIGINS',
@@ -38,7 +39,9 @@ db = SQLAlchemy(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.login_app = app
 login_manager.login_view = 'login'
+login_manager.login_message = "Please log in to access this page."
 
 #User class: better for authentication
 class User(UserMixin, db.Model):
@@ -155,9 +158,26 @@ def login():
             'total_differences_found': user.total_differences_found
         }
 
+        resp = make_response(jsonify(response_data), 200)
+        session_cookie_value = app.session_interface.get_signing_serializer(app).dumps(dict(session))
+
+        resp.set_cookie(
+            app.config['SESSION_COOKIE_NAME'],
+            session_cookie_value,
+            expires=session.permanent_session_lifetime,
+            httponly=True,
+            secure=app.config['SESSION_COOKIE_SECURE'],
+            samesite=app.config['SESSION_COOKIE_SAMESITE'],
+            path=app.config.get('SESSION_COOKIE_PATH', '/')
+        )
+
+        print(f"DEBUG: Manually setting Set-Cookie header. Value starts with: {session_cookie_value[:20]}...", file=sys.stderr)
+        print(f"DEBUG: Set-Cookie header on response object: {resp.headers.get('Set-Cookie')}", file=sys.stderr)
+        print(f"DEBUG: Session cookie attributes: Secure={app.config['SESSION_COOKIE_SECURE']}, SameSite={app.config['SESSION_COOKIE_SAMESITE']}, Domain={app.config.get('SESSION_COOKIE_DOMAIN')}, Path={app.config.get('SESSION_COOKIE_PATH', '/')}", file=sys.stderr)
+
+        return resp
 
 
-        return jsonify(response_data), 200
 
         # return jsonify({
         #     'message': 'Login successful!',
