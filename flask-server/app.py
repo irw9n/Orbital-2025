@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, send_from_directory, session, make_response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, current_user, login_required
@@ -9,12 +9,16 @@ import numpy as np
 import random
 from datetime import datetime, timedelta
 import traceback
+import sys
 
 from image_processing import apply_contour_manipulation, apply_object_addition
 
 app = Flask(__name__)
 
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'supersecretkey')
+print(f"DEBUG: Flask SECRET_KEY loaded: {app.config['SECRET_KEY'][:10]}... (showing first 10 chars)")
+if not app.config['SECRET_KEY'] or len(app.config['SECRET_KEY']) < 32:
+    print("WARNING: SECRET_KEY is short or not set. Sessions may not work correctly!", file=sys.stderr)
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://user:password@localhost:5432/spot_the_diff_db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -64,8 +68,9 @@ def unauthorized():
     is_ajax_request = request.accept_mimetypes.accept_json or 'application/json' in request.headers.get('Content-Type', '')
 
     if is_ajax_request:
+        print("DEBUG: Unauthorized AJAX request detected. Returning 401.", file=sys.stderr)
         return jsonify({'error': 'Unauthorized: Please log in to access this resource.'}), 401
-    
+    print("DEBUG: Unauthorized non-AJAX request detected. Redirecting to login.", file=sys.stderr)
     return app.redirect(login_manager.login_view)
 
 #user loader for flask-login
@@ -133,25 +138,52 @@ def login():
         login_user(user) # log in the user
         session.permanent = True # make session permanent
 
-        return jsonify({
+        print(f"DEBUG: Login successful for user: {user.username}", file=sys.stderr)
+        print(f"DEBUG: Session object before response: {session}", file=sys.stderr)
+        print(f"DEBUG: Session keys before response: {list(session.keys())}", file=sys.stderr)
+        if '_user_id' in session:
+            print(f"DEBUG: _user_id in session: {session['_user_id']}", file=sys.stderr)
+        else:
+            print("DEBUG: _user_id NOT in session after login_user!", file=sys.stderr)
+
+
+        response_data = {
             'message': 'Login successful!',
             'username': user.username,
             'games_played': user.games_played,
             'games_won': user.games_won,
             'total_differences_found': user.total_differences_found
-        }), 200
+        }
+
+        resp = make_response(jsonify(response_data), 200)
+
+        print(f"DEBUG: Set-Cookie header being sent (if any): {resp.headers.get('Set-Cookie')}", file=sys.stderr)
+        print(f"DEBUG: Session cookie attributes: Secure={app.config['SESSION_COOKIE_SECURE']}, SameSite={app.config['SESSION_COOKIE_SAMESITE']}", file=sys.stderr)
+
+        return resp
+
+        # return jsonify({
+        #     'message': 'Login successful!',
+        #     'username': user.username,
+        #     'games_played': user.games_played,
+        #     'games_won': user.games_won,
+        #     'total_differences_found': user.total_differences_found
+        # }), 200
     else:
+        print("DEBUG: Login failed: Invalid credentials.", file=sys.stderr)
         return jsonify({'error': 'Invalid username or password'}), 401
     
 @app.route('/logout', methods=['POST'])
 @login_required # Requires user to be logged in to logout
 def logout():
+    print(f"DEBUG: User {current_user.username} logging out.", file=sys.stderr)
     logout_user()
     return jsonify({'message': 'Logged out successfully!'}), 200
 
 @app.route('/user_profile', methods=['GET'])
 @login_required # protect this route
 def user_profile():
+    print(f"DEBUG: Accessing user_profile for {current_user.username}.", file=sys.stderr)
     return jsonify({
         'username': current_user.username,
         'games_played': current_user.games_played,
@@ -162,6 +194,7 @@ def user_profile():
 @app.route('/update_stats', methods=['POST'])
 @login_required # Only logged-in users can update stats
 def update_stats():
+    print(f"DEBUG: Updating stats for user {current_user.username}.", file=sys.stderr)
     data = request.get_json()
     differences_found = data.get('differencesFound', 0)
     game_won = data.get('gameWon', False)
@@ -173,15 +206,21 @@ def update_stats():
             current_user.games_won += 1
         
         db.session.commit()
+        print("DEBUG: Stats updated successfully.", file=sys.stderr)
         return jsonify({'message': 'Stats updated successfully!'}), 200
     except Exception as e:
         db.session.rollback()
         print(f"Database error during stats update: {e}")
+        print(f"Database error during stats update: {e}", file=sys.stderr)
         return jsonify({'error': 'Failed to update stats.'}), 500
 
 @app.route('/upload-and-process', methods=['POST'])
 @login_required 
 def upload_and_process():
+    print(f"DEBUG: Attempting upload for user {current_user.username}. Is authenticated: {current_user.is_authenticated}", file=sys.stderr)
+    print(f"DEBUG: Request headers: {request.headers}", file=sys.stderr)
+    print(f"DEBUG: Incoming Cookie header: {request.headers.get('Cookie')}", file=sys.stderr)
+
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
 
