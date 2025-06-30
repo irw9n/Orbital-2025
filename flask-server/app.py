@@ -52,6 +52,13 @@ class User(UserMixin, db.Model):
     def __repr__(self):
         return f'<User {self.username}>'
     
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    if request.is_xhr or request.accept_mimetypes.accept_json:
+        return jsonify({'error': 'Unauthorized: Please log in to access this resource.'}), 401
+    return app.redirect(login_manager.login_view)
+
 #user loader for flask-login
 @login_manager.user_loader
 def load_user(user_id):
