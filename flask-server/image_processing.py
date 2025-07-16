@@ -3,6 +3,12 @@ import numpy as np
 import random as rd
 import os
 from sklearn.neighbors import NearestNeighbors
+import logging
+
+"""
+The python file here condenses all the image operations within modification.
+"""
+
 
 #Create/Ensure a temporary objects directory exists
 OBJECTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'objects')
@@ -12,12 +18,12 @@ DICT_TRANSFORMS = {
     1: "change_color",
     2: "expand_contour"
 }
-MIN_AREA_FOR_CONTOURS = 500
+MIN_AREA_FOR_CONTOURS = 400
 MAX_AREA_FOR_CONTOURS = 1500
 THRESHOLD_CONTOUR_DISTANCE = 100 # Minimum distance between chosen contour centroids
 
 # For object addition
-THRESHOLD_OBJECT_COORDINATE_DISTANCE = 50 # Minimum distance between added object coordinates
+THRESHOLD_OBJECT_COORDINATE_DISTANCE = 70 # Minimum distance between added object coordinates
 
 def get_contour_bounding_box(contour):
     # returns a bounding box for the contour
@@ -34,7 +40,9 @@ def find_median_RGB(img):
     # print("Median RGB:", median_bgr)
     return median_bgr
 
-def find_suitable_contours(good_contours, contours_picked_data):
+
+# picks a suitable contours, ensuring its not too close to existing contours picked before 
+def find_suitable_contours(good_contours, past_picked_contours):
 
     attempts = 0
     max_attempts = 20 # prevent infinite loops if all contours are too close
@@ -53,7 +61,7 @@ def find_suitable_contours(good_contours, contours_picked_data):
         centroid_chosen = [M_chosen['m10'] // M_chosen['m00'], M_chosen['m01'] // M_chosen['m00']]
         
         too_close = False
-        for picked_contour in contours_picked_data:
+        for picked_contour in past_picked_contours:
             M_picked = cv2.moments(picked_contour)
             if M_picked['m00'] == 0: continue # skip if picked contour has zero area
 
@@ -94,39 +102,65 @@ def change_color(img, contour):
     # calculate the median color of the surrounding pixels in ROI_pixels
     median_surrounding_color = np.median(ROI_pixels[ROI_mask == 255], axis=0).astype(np.uint8)
 
+    # Second dilation to extend the mask slightly
+    slight_dilate_kernel = np.ones((8, 8), np.uint8)
+    expanded_mask = cv2.dilate(mask_img, slight_dilate_kernel, iterations=1)
+
     #replace the color of the contour with the median color
-    img[mask_img == 255] = median_surrounding_color
+    img[expanded_mask == 255] = median_surrounding_color
 
     return img
+
+
 
 def expand_contour(img, contour, expansion_factor):
     # Create a black mask of the same size as the image
     mask_img = np.zeros(img.shape[:2], dtype=np.uint8) 
     # Fill the contour with white color 
     mask_img = cv2.drawContours(mask_img, [contour], -1, (255, 255, 255), thickness=cv2.FILLED)  
-    # use bitwise and operator to isolate the region of interest (ROI) object from the original image
-    ROI_masked = cv2.bitwise_and(img, img, mask=mask_img)
 
-    # cv2.imshow("ROI Masked", ROI_masked)  # Display the masked image for debugging
-    # cv2.waitKey(0)  # Wait for a key press to close the window
+    # Get bounding box
+    x, y, w, h = cv2.boundingRect(contour)
 
-    # get boundaries of the contour
-    x, y, width, height = cv2.boundingRect(contour) # x, y = top-left coordinates
+    # Crop the mask and image
+    cropped_mask = mask_img[y:y+h, x:x+w]
+    cropped_img = img[y:y+h, x:x+w]
 
-    cropped = ROI_masked[y:y+height, x:x+width]  # Crop the masked image to the bounding rectangle of the contour
-    
-    expanded_crop = cv2.resize(cropped, (int(width * expansion_factor), int(height * expansion_factor)))  # Resize the cropped image to the new size
+    # Resize both the cropped image and mask
+    new_w = int(w * expansion_factor)
+    new_h = int(h * expansion_factor)
+    expanded_crop = cv2.resize(cropped_img, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+    expanded_mask = cv2.resize(cropped_mask, (new_w, new_h), interpolation=cv2.INTER_NEAREST)
 
-    # creates a boolean mask of whether each pixel is 0
-    black_mask = np.all(expanded_crop == 0, axis=-1)  # Create a mask of black pixels in the expanded crop
-    enlarge_original_crop = img[y:y+expanded_crop.shape[0], x:x+expanded_crop.shape[1]]  # Replace black pixels from black mask with original image pixels
+    # Calculate new top-left coordinates to center the expanded crop over the original
+    x_offset = x - (new_w - w) // 2
+    y_offset = y - (new_h - h) // 2
 
-    expanded_crop[black_mask] = enlarge_original_crop[black_mask]  # Replace black pixels in the expanded crop with the corresponding pixels from the original image
+    # Ensure offsets are within image bounds
+    x_offset = max(0, x_offset)
+    y_offset = max(0, y_offset)
+    x_end = min(img.shape[1], x_offset + new_w)
+    y_end = min(img.shape[0], y_offset + new_h)
 
-    # paste the crop into the original image at the same position
-    img[y:y+expanded_crop.shape[0], x:x+expanded_crop.shape[1]] = expanded_crop  # Paste the expanded crop back into the original image
+    # Adjust expanded crop and mask if they go out of bounds
+    crop_x1 = 0 if x_offset == 0 else None
+    crop_y1 = 0 if y_offset == 0 else None
+
+    crop_x2 = new_w - (x_offset + new_w - x_end) if x_end < x_offset + new_w else new_w
+    crop_y2 = new_h - (y_offset + new_h - y_end) if y_end < y_offset + new_h else new_h
+
+    expanded_crop = expanded_crop[crop_y1:crop_y2, crop_x1:crop_x2]
+    expanded_mask = expanded_mask[crop_y1:crop_y2, crop_x1:crop_x2]
+
+    # Paste only the expanded contour (where mask > 0) onto the original image
+    roi = img[y_offset:y_end, x_offset:x_end]
+    mask_bool = expanded_mask > 0
+    roi[mask_bool] = expanded_crop[mask_bool]
+    img[y_offset:y_end, x_offset:x_end] = roi
 
     return img
+
+
 
 def find_closest_pixels(img, target_bgr, k=25):
     height, width, _ = img.shape
@@ -144,21 +178,28 @@ def find_closest_pixels(img, target_bgr, k=25):
     matched_coordinates = coordinates[indices[0]]
     return matched_coordinates.tolist()
 
+
+
+# finding euclidean distance
+def point_to_rect_distance(px, py, x1, y1, x2, y2):
+    # Clamp the point to the rectangle bounds
+    cx = min(max(px, x1), x2)
+    cy = min(max(py, y1), y2)
+    # Euclidean distance from point to closest point in rectangle
+    return ((px - cx) ** 2 + (py - cy) ** 2) ** 0.5
+
 # randomly pick a coordinate from the list of closest pixels generated from the function above
-def coordinate_to_add_local_tracking(object_path, base_img, picked_coordinates):
+def find_suitable_coordinate(object_path, base_img, all_coordinate_changes):
 
     median_BGR = find_median_RGB(cv2.imread(object_path, cv2.IMREAD_COLOR)) # Read object for its median color
     list_of_coordinates = find_closest_pixels(base_img, median_BGR)
-    
     rd.shuffle(list_of_coordinates)
     
     for potential_y, potential_x in list_of_coordinates:
         too_close = False
-        for picked_y, picked_x in picked_coordinates:
-            # check distance for current object (object_img) from previously placed ones
-            x_diff = abs(potential_x - picked_x)
-            y_diff = abs(potential_y - picked_y)
-            if x_diff < THRESHOLD_OBJECT_COORDINATE_DISTANCE and y_diff < THRESHOLD_OBJECT_COORDINATE_DISTANCE:
+        for x1, y1, x2, y2 in all_coordinate_changes:
+            dist = point_to_rect_distance(potential_x, potential_y, x1, y1, x2, y2)
+            if dist < THRESHOLD_OBJECT_COORDINATE_DISTANCE:
                 too_close = True
                 break
         
@@ -167,6 +208,8 @@ def coordinate_to_add_local_tracking(object_path, base_img, picked_coordinates):
         
     # if all the coordinates are too close, simple return a random coordinate from the list then
     return rd.choice(list_of_coordinates)
+
+
 
 def color_adjust_object(object_img, base_img, target_coordinate, alpha): # alpha determines the degree to color blend
     """
@@ -191,8 +234,9 @@ def color_adjust_object(object_img, base_img, target_coordinate, alpha): # alpha
 
     # We realized that the function below existed, essentially doing the same as the code above but decided to keep it for reference and stick to our custom built version
     # adjusted_img = cv2.addWeighted(object_img, max(1-alpha, 0.3), base_patch, alpha, 0) 
-
     return adjusted_img
+
+
 
 # paste png object whilst ensuring background noise is removed
 def paste_object(base_img, object_path, target_coordinate, alpha=0.5, intended_width=30):
@@ -201,7 +245,7 @@ def paste_object(base_img, object_path, target_coordinate, alpha=0.5, intended_w
     object_img = cv2.imread(object_path, cv2.IMREAD_UNCHANGED)
     h, w, c = object_img.shape
 
-    # resize the object image to ur intended width for the game
+    # resize the object image to intended width for the game
     intended_height = int(h * intended_width/ w)  # resize the object image height in proportion to intended width
     object_img = cv2.resize(object_img, (intended_width,intended_height))  # resize the object image to a fixed size
 
@@ -244,14 +288,18 @@ def paste_object(base_img, object_path, target_coordinate, alpha=0.5, intended_w
     return base_img
 
 
-# --- main API Functions for Flask integration ---
 
-def apply_contour_manipulation(original_img_array, num_of_changes=1):
+# display a summary of a contour's area, perimeter and density
+def contour_metrics(cnt):
+    area = cv2.contourArea(cnt)
+    perimeter = cv2.arcLength(cnt, True)
+    density = area / perimeter if perimeter else 0  # compactness-like measure
+    return area, perimeter, density
 
+# function applies image pre-processing of contour detection and picks suitable contours to modify
+def apply_contour_manipulation(original_img_array, all_coordinate_changes, num_of_changes=1):
     img_modified = original_img_array.copy()
-
-    img_modified = cv2.resize(img_modified, (640, 640))
-
+    # Basic PreProcessing steps
     gray_img = cv2.cvtColor(img_modified, cv2.COLOR_BGR2GRAY)
     blurred_img = cv2.bilateralFilter(gray_img, 3, 50, 50)
     thresh = cv2.adaptiveThreshold(blurred_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 11, 2)
@@ -260,61 +308,74 @@ def apply_contour_manipulation(original_img_array, num_of_changes=1):
 
     contours, _ = cv2.findContours(final_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) 
 
-    good_contours = []
-    for contour in contours:
-        area = cv2.contourArea(contour)
-        if MIN_AREA_FOR_CONTOURS <= area <= MAX_AREA_FOR_CONTOURS:
-            good_contours.append(contour)
-    
-    differences_coords = []
-    contours_indices_picked_for_spacing = [] 
+
+    # list of suitable candidates for each transformation
+    blend_candidates = []
+    expand_candidates = []
+    past_contours_picked = []
+
+    for c in contours:
+        area, perimeter, density = contour_metrics(c)
+
+        # Criteria for color blending: contour is long enough
+        if 70 < perimeter < 210 or (210 < perimeter < 400 and density < 1):
+            blend_candidates.append(c)
+
+        # Criteria for expansion: reasonable size and density
+        if MIN_AREA_FOR_CONTOURS <= area <= MAX_AREA_FOR_CONTOURS and density > 3:
+            expand_candidates.append(c)
+
+    print(f"Number of Blend Candidates: {len(blend_candidates)}")
+    print(f"Number of expand candidates: {len(expand_candidates)}")
+
 
     for i in range(num_of_changes):
-        contour_chosen = find_suitable_contours(good_contours, contours_indices_picked_for_spacing)
-        if contour_chosen is None:
-            break 
-
-        contours_indices_picked_for_spacing.append(contour_chosen)
-
-        differences_coords.append(get_contour_bounding_box(contour_chosen))
-
         transform_type = rd.choice(list(DICT_TRANSFORMS.keys()))
+
+        # Choose a suitable contour from the appropriate pool
+        candidate_pool = blend_candidates if transform_type == 1 else expand_candidates
+        contour_chosen = find_suitable_contours(candidate_pool, past_contours_picked)
+
+        if contour_chosen is None:
+            continue
+
+        past_contours_picked.append(contour_chosen)
+        all_coordinate_changes.append(get_contour_bounding_box(contour_chosen))
+
         
         if transform_type == 1:
-            print(f"Applying color change to contour {i+1}...")
+            print(f"Applying color change to contour with coordinate: {contour_chosen[0][0]}")
             img_modified = change_color(img_modified, contour_chosen)
         elif transform_type == 2:
             expansion_factor = rd.uniform(1.4, 1.5)
-            print(f"Applying expansion (factor {expansion_factor}) to contour {i+1}...")
+            print(f"Applying expansion (factor {expansion_factor}) to contour with coordinate: {contour_chosen[0][0]}")
             img_modified = expand_contour(img_modified, contour_chosen, expansion_factor)
     
-    return img_modified, differences_coords
+    return img_modified
 
-def apply_object_addition(original_img_array, num_objects=1, alpha=0.5, intended_width=30):
+
+
+
+def apply_object_addition(original_img_array, all_coordinate_changes, num_objects=1, alpha=0.5, intended_width=30):
 
     img_modified = original_img_array.copy()
-
-    img_modified = cv2.resize(img_modified, (640, 640))
+    # img_modified = cv2.resize(img_modified, (640, 640))
 
     items_list = [f for f in os.listdir(OBJECTS_DIR) if f.endswith(('.png', '.PNG'))]
     if not items_list:
         print(f"Error: No PNG objects found in '{OBJECTS_DIR}'. Please ensure the 'objects' folder exists and contains PNGs.")
         return original_img_array, []
 
-    num_objects_to_add = min(num_objects, len(items_list), 3) # cap at 3 or less
+    num_objects_to_add = min(num_objects, len(items_list)) 
 
     selected_files = rd.sample(items_list, num_objects_to_add)
     
-    added_object_differences = []
-    picked_coordinates_for_spacing = [] # store [y, x] for spacing checks
 
     for file_name in selected_files:
         object_path = os.path.join(OBJECTS_DIR, file_name)
 
         # get smart coordinate ensuring spacing
-        smart_coordinate_yx = coordinate_to_add_local_tracking(object_path, img_modified, picked_coordinates_for_spacing)
-        picked_coordinates_for_spacing.append(smart_coordinate_yx) # Add to list for next check
-
+        smart_coordinate_yx = find_suitable_coordinate(object_path, img_modified, all_coordinate_changes)
 
         obj_img_raw = cv2.imread(object_path, cv2.IMREAD_UNCHANGED)
         if obj_img_raw is None:
@@ -335,7 +396,99 @@ def apply_object_addition(original_img_array, num_objects=1, alpha=0.5, intended
         x2 = x1 + w_resized
         y2 = y1 + h_resized
 
-        added_object_differences.append([x1, y1, x2, y2])
+        all_coordinate_changes.append([x1, y1, x2, y2])
         print(f"Added object '{file_name}' at: {[x1, y1, x2, y2]}")
 
-    return img_modified, added_object_differences
+    return img_modified
+
+
+def apply_changes(original_img_array, num_changes):
+    all_coordinate_changes = []
+
+    num_add_change = rd.randint(0, num_changes-1)
+    num_object_change = num_changes - num_add_change
+    logging.info(f"Add Objects: {num_add_change}")
+    logging.info(f"Changed Objects: {num_object_change}")
+
+    img_after_contour_changes = apply_contour_manipulation(original_img_array, all_coordinate_changes, num_object_change)
+
+    img_modified = apply_object_addition(img_after_contour_changes, all_coordinate_changes, num_add_change, alpha=0.2)
+
+    return img_modified, all_coordinate_changes
+
+
+
+
+
+# archived code
+
+# def expand_contour(img, contour, expansion_factor):
+#     # Create a black mask of the same size as the image
+#     mask_img = np.zeros(img.shape[:2], dtype=np.uint8) 
+#     # Fill the contour with white color 
+#     mask_img = cv2.drawContours(mask_img, [contour], -1, (255, 255, 255), thickness=cv2.FILLED)  
+#     # use bitwise and operator to isolate the region of interest (ROI) object from the original image
+#     ROI_masked = cv2.bitwise_and(img, img, mask=mask_img)
+
+#     # cv2.imshow("ROI Masked", ROI_masked)  # Display the masked image for debugging
+#     # cv2.waitKey(0)  # Wait for a key press to close the window
+
+#     # get boundaries of the contour
+#     x, y, width, height = cv2.boundingRect(contour) # x, y = top-left coordinates
+
+#     cropped = ROI_masked[y:y+height, x:x+width]  # Crop the masked image to the bounding rectangle of the contour
+    
+#     expanded_crop = cv2.resize(cropped, (int(width * expansion_factor), int(height * expansion_factor)))  # Resize the cropped image to the new size
+
+#     # creates a boolean mask of whether each pixel is 0
+#     black_mask = np.all(expanded_crop == 0, axis=-1)  # Create a mask of black pixels in the expanded crop
+#     enlarge_original_crop = img[y:y+expanded_crop.shape[0], x:x+expanded_crop.shape[1]]  # Replace black pixels from black mask with original image pixels
+
+#     expanded_crop[black_mask] = enlarge_original_crop[black_mask]  # Replace black pixels in the expanded crop with the corresponding pixels from the original image
+
+#     # paste the crop into the original image at the same position
+#     img[y:y+expanded_crop.shape[0], x:x+expanded_crop.shape[1]] = expanded_crop  # Paste the expanded crop back into the original image
+
+#     return img
+
+
+# def apply_contour_manipulation(original_img_array, all_coordinate_changes, num_of_changes=1):
+
+#     img_modified = original_img_array.copy()
+#     # Basic PreProcessing steps
+#     gray_img = cv2.cvtColor(img_modified, cv2.COLOR_BGR2GRAY)
+#     blurred_img = cv2.bilateralFilter(gray_img, 3, 50, 50)
+#     thresh = cv2.adaptiveThreshold(blurred_img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 11, 2)
+#     kernel = np.ones((5, 5), np.uint8)
+#     final_img = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+#     contours, _ = cv2.findContours(final_img, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE) 
+
+#     good_contours = []
+#     for contour in contours:
+#         area = cv2.contourArea(contour)
+#         if MIN_AREA_FOR_CONTOURS <= area <= MAX_AREA_FOR_CONTOURS:
+#             good_contours.append(contour)
+    
+#     past_contours_picked = [] 
+
+#     for i in range(num_of_changes):
+#         contour_chosen = find_suitable_contours(good_contours, past_contours_picked)
+#         if contour_chosen is None:
+#             break 
+
+#         past_contours_picked.append(contour_chosen)
+
+#         all_coordinate_changes.append(get_contour_bounding_box(contour_chosen))
+
+#         transform_type = rd.choice(list(DICT_TRANSFORMS.keys()))
+        
+#         if transform_type == 1:
+#             logging.info(f"Applying color change to contour {i+1}...")
+#             img_modified = change_color(img_modified, contour_chosen)
+#         elif transform_type == 2:
+#             expansion_factor = rd.uniform(1.4, 1.5)
+#             logging.info(f"Applying expansion (factor {expansion_factor}) to contour {i+1}...")
+#             img_modified = expand_contour(img_modified, contour_chosen, expansion_factor)
+    
+#     return img_modified
