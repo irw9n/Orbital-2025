@@ -54,4 +54,4 @@ function RestartButton({gameEnded, loading, onRestart, showConfirm, setShowConfi
     )
 }
 
-export default RestartButton
+export default RestartButton;
