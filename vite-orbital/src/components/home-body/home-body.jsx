@@ -18,9 +18,9 @@ import PollinateModal from "../PollinateModal";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
-// const BACKEND_URL = "https://orbital25-cv.onrender.com"; // Connecting to Render-hosted backend
+const BACKEND_URL = "https://orbital-2025-backend.onrender.com"; // Connecting to Render-hosted backend
 
-const BACKEND_URL = "http://localhost:5000"; // Connecting to Flask backend
+// const BACKEND_URL = "http://localhost:5000"; // Connecting to Flask backend
 
 function Homebody() {
   const [selectedFile, setSelectedFile] = useState(null);
