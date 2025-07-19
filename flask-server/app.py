@@ -14,6 +14,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import cloudinary
 import cloudinary.uploader as cloud_upload
 from image_processing import apply_changes
+from functools import wraps
+
 
 
 app = Flask(__name__)
@@ -49,6 +51,11 @@ class User(db.Model):
     username = db.Column(db.String(150), unique=True, nullable=False)
     password_hash = db.Column(db.Text, nullable=False)  # Hashed password
 
+    # User statistics to be loaded upon login
+    games_played = db.Column(db.Integer, default=0, nullable=False)
+    games_won = db.Column(db.Integer, default=0, nullable=False)
+    total_differences_found = db.Column(db.Integer, default=0, nullable=False)
+
     # JOINS with GameRecord Table 
     game_records = db.relationship('GameRecord', backref='user', lazy=True)
 
@@ -75,6 +82,17 @@ class GameRecord(db.Model):
 
 
 # ----- User Logins ------
+
+
+# Helper function to check if user is logged in
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "Unauthorized: Please log in."}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 # Backend for handling user data when registering new user
 @app.route('/register', methods=['POST'])
 def register_user():
@@ -113,7 +131,13 @@ def login_user():
     if user and user.check_password(password):
         # set session
         session["user_id"] = user.id
-        return jsonify({'message': 'Login successful', 'user_id': user.id})
+        return jsonify({'message': 'Login successful', 
+                        'user_id': user.id,
+                        'username': user.username,
+                        'games_played': user.games_played,
+                        'games_won': user.games_won,
+                        'total_differences_found': user.total_differences_found
+                        }), 200
     return jsonify({'error': 'Invalid username or password'}), 401
 
 
@@ -121,11 +145,55 @@ def login_user():
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop("user_id", None)
-    return jsonify({"Message": "Logged Out"})
+    return jsonify({"Message": "Logged Out"}), 200
+
+# rendering user stats
+@app.route('/user_stats', methods=['GET'])
+@login_required
+def user_stats():
+    user_id = session.get("user_id")
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    return jsonify({
+        'user_id': user.id,
+        'username': user.username,
+        'games_played': user.games_played,
+        'games_won': user.games_won,
+        'total_differences_found': user.total_differences_found
+    }), 200
+
+# update user's stats after a game
+@app.route('/update_stats', methods=['POST'])
+@login_required
+def update_stats():
+    user_id = session.get("user_id")
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    data = request.json
+    differences_found = data.get('differencesFound', 0)
+    game_won = data.get('gameWon', False)
+
+    try:
+        user.games_played += 1
+        user.total_differences_found += differences_found
+        if game_won:
+            user.games_won += 1
+        
+        db.session.commit()
+        return jsonify({'message': 'Stats updated successfully!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error updating stats for user {user_id}: {e}")
+        return jsonify({'error': 'Failed to update stats.'}), 500
 
 
 # Backend for saving Game Records after game is over
 @app.route('/save-game', methods=['POST'])
+@login_required
 def save_game():
     data = request.json
     user_id = data.get('user_id')
@@ -176,6 +244,7 @@ def save_game():
 
 
 @app.route('/user/<int:user_id>/history')
+@login_required
 def game_history(user_id):
     user = User.query.get_or_404(user_id)
     games = [{
