@@ -21,6 +21,9 @@ from functools import wraps
 app = Flask(__name__)
 # initialize secret key for session management and CSRF protection
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
+app.config['SESSION_COOKIE_SAMESITE'] = "None"
+app.config['SESSION_COOKIE_SECURE'] = True
+
 # Allows Flask as a backend to be accessed from React which is ran on another domain
 CORS(app, supports_credentials=True, origins=["https://localhost:5173"]) 
 
