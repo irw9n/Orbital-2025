@@ -213,12 +213,23 @@ def save_game():
         return jsonify({'error': 'Missing fields'}), 400
 
     try:
-        # Upload images to Cloudinary
-        cloudinary_original = cloud_upload.upload(original_path)
-        cloudinary_modified = cloud_upload.upload(modified_path)
 
-        original_url = cloudinary_original['secure_url']
-        modified_url = cloudinary_modified['secure_url']
+        original_filename = os.path.basename(original_path)
+        modified_filename = os.path.basename(modified_path)
+
+        original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
+        modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
+
+        # Generate unique folder name for Cloudinary based on username and timestamp
+        timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+        cloudinary_folder_name = f"spotthedifference/{user_id}_{timestamp_str}"
+
+        # Upload images to Cloudinary
+        cloudinary_original_response = cloud_upload.upload(original_filepath, folder=cloudinary_folder_name)
+        cloudinary_modified_response = cloud_upload.upload(modified_filepath, folder=cloudinary_folder_name)
+
+        original_url = cloudinary_original_response['secure_url']
+        modified_url = cloudinary_modified_response['secure_url']
 
         # Clean up local files after upload
         try:
@@ -359,6 +370,8 @@ def upload_and_process():
             return jsonify({
                 'originalImageUrl': f'/{UPLOAD_FOLDER}/{original_filename}',
                 'modifiedImageUrl': f'/{UPLOAD_FOLDER}/{modified_filename}',
+                'originalImageLocalPath': original_filepath,
+                'modifiedImageLocalPath': modified_filepath,
                 'rawDifferencesForFrontendDemo': differences
             }), 200
 
