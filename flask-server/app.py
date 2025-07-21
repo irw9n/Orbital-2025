@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 10.0 LOADED (SIMPLIFIED LOGGING) ---") 
+print("--- APP.PY VERSION 12.0 LOADED (SAVE GAME DEBUG) ---") 
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
