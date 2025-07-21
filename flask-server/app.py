@@ -315,6 +315,8 @@ def upload_and_process():
     # Check sessions to see if user is logged in
     user_id = session.get("user_id")
     app.logger.info(f"[/upload-and-process] User ID from session: {user_id}")
+    app.logger.info(f"Request Headers: {request.headers}")
+    app.logger.info(f"Request Cookies: {request.cookies}")
 
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
