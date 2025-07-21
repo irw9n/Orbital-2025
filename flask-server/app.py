@@ -148,6 +148,7 @@ def login_user():
 @app.route('/logout', methods=['POST'])
 def logout():
     session.pop("user_id", None)
+    session.pop("current_game_temp_files", None)
     return jsonify({"Message": "Logged Out"}), 200
 
 # rendering user stats
@@ -211,22 +212,29 @@ def save_game():
 
     if not all([user_id, original_path, modified_path, score, total, time_taken]):
         return jsonify({'error': 'Missing fields'}), 400
+    
+    session_temp_files = session.get("current_game_temp_files")
+    if not session_temp_files or \
+       session_temp_files.get('original') != original_path or \
+       session_temp_files.get('modified') != modified_path:
+        app.logger.error(f"Security alert: Mismatch in local image paths for user {user_id}. Session: {session_temp_files}, Request: {original_path}, {modified_path}")
+        return jsonify({'error': 'Invalid image paths provided. Session mismatch.'}), 400
 
     try:
 
-        original_filename = os.path.basename(original_path)
-        modified_filename = os.path.basename(modified_path)
+        # original_filename = os.path.basename(original_path)
+        # modified_filename = os.path.basename(modified_path)
 
-        original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
-        modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
+        # original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
+        # modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
 
         # Generate unique folder name for Cloudinary based on username and timestamp
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         cloudinary_folder_name = f"spotthedifference/{user_id}_{timestamp_str}"
 
         # Upload images to Cloudinary
-        cloudinary_original_response = cloud_upload.upload(original_filepath, folder=cloudinary_folder_name)
-        cloudinary_modified_response = cloud_upload.upload(modified_filepath, folder=cloudinary_folder_name)
+        cloudinary_original_response = cloud_upload.upload(original_path, folder=cloudinary_folder_name)
+        cloudinary_modified_response = cloud_upload.upload(modified_path, folder=cloudinary_folder_name)
 
         original_url = cloudinary_original_response['secure_url']
         modified_url = cloudinary_modified_response['secure_url']
@@ -300,6 +308,7 @@ def allowed_file(filename):
 def upload_and_process():
     # Check sessions to see if user is logged in
     user_id = session.get("user_id")
+    app.logger.info(f"[/upload-and-process] User ID from session: {user_id}")
 
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
@@ -363,8 +372,15 @@ def upload_and_process():
             cv2.imwrite(modified_filepath, modified_img_array)
 
             # enable guest_files tracking filepath to track and delete images from guest once they're done with the game.
-            if not user_id:
+            if user_id:
+                session["current_game_temp_files"] = {
+                    "original": original_filepath,
+                    "modified": modified_filepath
+                }
+                app.logger.info(f"Stored temp file paths in session for user {user_id}: {session['current_game_temp_files']}")
+            else:
                 session.setdefault("guest_files", []).extend([original_filepath, modified_filepath]) # saves filepaths to session["guest_files"]
+                app.logger.info(f"Stored temp file paths for guest: {session['guest_files']}")
             
             # Return the local file paths (you can serve these via Flask route if needed)
             return jsonify({
