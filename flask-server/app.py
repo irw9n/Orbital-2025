@@ -332,10 +332,6 @@ def upload_and_process():
     app.logger.info(f"[/upload-and-process] User ID from session: {user_id}")
     # app.logger.info(f"Request Headers: {request.headers}")
     # app.logger.info(f"Request Cookies: {request.cookies}")
-    if user_id:
-        return jsonify({"message": "Session active", "user_id": user_id}), 200
-    else:
-        return jsonify({"message": "Session not active", "user_id": None}), 200
 
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
