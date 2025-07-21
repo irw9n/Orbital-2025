@@ -200,9 +200,9 @@ def update_stats():
 @login_required
 def save_game():
     data = request.json
-    user_id = data.get('user_id')
-    original_path = data.get('original_image')
-    modified_path = data.get('modified_image')
+    user_id = session.get('user_id')
+    original_path = data.get('original_image_path')
+    modified_path = data.get('modified_image_path')
     score = data.get('score')
     total = data.get('total')
     time_taken = data.get('time_taken')
