@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 9.0 LOADED (EXPLICIT SESSION TEST) ---")
+print("--- APP.PY VERSION 10.0 LOADED (SIMPLIFIED LOGGING) ---")
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -295,8 +295,8 @@ def game_history(user_id):
 def test_session():
     user_id = session.get("user_id")
     app.logger.info(f"[/test-session] User ID from session: {user_id}")
-    app.logger.info(f"[/test-session] Request Headers: {request.headers}")
-    app.logger.info(f"[/test-session] Request Cookies: {request.cookies}")
+    # app.logger.info(f"[/test-session] Request Headers: {request.headers}")
+    # app.logger.info(f"[/test-session] Request Cookies: {request.cookies}")
     if user_id:
         return jsonify({"message": "Session active", "user_id": user_id}), 200
     else:
@@ -328,9 +328,14 @@ def allowed_file(filename):
 def upload_and_process():
     # Check sessions to see if user is logged in
     user_id = session.get("user_id")
+    print(f"[/test-session] User ID from session: {user_id}")
     app.logger.info(f"[/upload-and-process] User ID from session: {user_id}")
-    app.logger.info(f"Request Headers: {request.headers}")
-    app.logger.info(f"Request Cookies: {request.cookies}")
+    # app.logger.info(f"Request Headers: {request.headers}")
+    # app.logger.info(f"Request Cookies: {request.cookies}")
+    if user_id:
+        return jsonify({"message": "Session active", "user_id": user_id}), 200
+    else:
+        return jsonify({"message": "Session not active", "user_id": None}), 200
 
     if 'image' not in request.files:
         return jsonify({'error': 'No image file provided'}), 400
