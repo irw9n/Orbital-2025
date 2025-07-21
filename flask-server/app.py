@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 7.0 LOADED (COOKIE DEBUG) ---")
+print("--- APP.PY VERSION 9.0 LOADED (EXPLICIT SESSION TEST) ---")
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -25,6 +25,8 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
+app.logger.info(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
+
 
 
 # Allows Flask as a backend to be accessed from React which is ran on another domain
@@ -289,6 +291,16 @@ def game_history(user_id):
     return jsonify({'username': user.username, 'games': games})
 
 
+@app.route('/test-session', methods=['GET'])
+def test_session():
+    user_id = session.get("user_id")
+    app.logger.info(f"[/test-session] User ID from session: {user_id}")
+    app.logger.info(f"[/test-session] Request Headers: {request.headers}")
+    app.logger.info(f"[/test-session] Request Cookies: {request.cookies}")
+    if user_id:
+        return jsonify({"message": "Session active", "user_id": user_id}), 200
+    else:
+        return jsonify({"message": "Session not active", "user_id": None}), 200
 
 
 # ----- Image modification Backend Logic ------
