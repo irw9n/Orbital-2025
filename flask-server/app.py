@@ -25,7 +25,12 @@ app.config['SESSION_COOKIE_SAMESITE'] = "None"
 app.config['SESSION_COOKIE_SECURE'] = True
 
 # Allows Flask as a backend to be accessed from React which is ran on another domain
-CORS(app, supports_credentials=True, origins=["https://localhost:5173"]) 
+allowed_origins_env = os.environ.get(
+    'CORS_ORIGINS',
+    'http://localhost:5173,https://localhost:5173'
+)
+ALLOWED_ORIGINS_LIST = [o.strip() for o in allowed_origins_env.split(',') if o.strip()]
+CORS(app, supports_credentials=True, origins=ALLOWED_ORIGINS_LIST) 
 
 # Configure Cloudinary for image storage
 cloudinary.config(
