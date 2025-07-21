@@ -1,3 +1,4 @@
+print("--- APP.PY VERSION 5.0 LOADED (DEBUG) ---") #debug line
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
