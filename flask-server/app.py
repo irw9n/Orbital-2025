@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 5.0 LOADED (DEBUG) ---") #debug line
+print("--- APP.PY VERSION 7.0 LOADED (COOKIE DEBUG) ---")
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -24,6 +24,8 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
 app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
+
 
 # Allows Flask as a backend to be accessed from React which is ran on another domain
 allowed_origins_env = os.environ.get(
