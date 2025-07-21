@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 12.0 LOADED (SAVE GAME DEBUG) ---") 
+print("--- APP.PY VERSION 13.0 LOADED (DETAILED SAVE GAME DEBUG) ---")
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -7,6 +7,8 @@ import cv2
 import numpy as np
 import random
 import logging
+logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
+import sys
 import urllib.parse, requests, tempfile
 from datetime import datetime, timezone
 # for securing user password
@@ -201,7 +203,7 @@ def update_stats():
         return jsonify({'message': 'Stats updated successfully!'}), 200
     except Exception as e:
         db.session.rollback()
-        app.logger.error(f"Error updating stats for user {user_id}: {e}")
+        print(f"Error updating stats for user {user_id}: {e}")
         return jsonify({'error': 'Failed to update stats.'}), 500
 
 
@@ -211,13 +213,22 @@ def update_stats():
 def save_game():
     data = request.json
     user_id = session.get('user_id')
+
     original_path = data.get('original_image_path')
     modified_path = data.get('modified_image_path')
     score = data.get('score')
     total = data.get('total')
     time_taken = data.get('time_taken')
 
-    if not user_id:
+    print(f"[/save-game] User ID from session: {user_id}")
+    print(f"[/save-game] Received original_image_local_path: {original_path}")
+    print(f"[/save-game] Received modified_image_local_path: {modified_path}")
+    print(f"[/save-game] Received score: {score}")
+    print(f"[/save-game] Received total: {total}")
+    print(f"[/save-game] Received time_taken: {time_taken}")
+
+    user = User.query.get(user_id)
+    if not user:
         return jsonify({'error': 'User not logged in'}), 401
 
     if not all([user_id, original_path, modified_path, score, total, time_taken]):
@@ -254,7 +265,7 @@ def save_game():
             os.remove(original_path)
             os.remove(modified_path)
         except Exception as e:
-            print(f"Error deleting local files after upload: {e}")
+            print(f"Error deleting local files after Cloudinary upload: {e}")
 
         game = GameRecord(
             user_id=user_id,
@@ -270,6 +281,7 @@ def save_game():
         return jsonify({'message': 'Game saved', 'record_id': game.id}), 201
 
     except Exception as e:
+        db.session.rollback()
         print(f"[SAVE-GAME ERROR] {e}")
         return jsonify({'error': 'Failed to save game or upload images'}), 500
 
