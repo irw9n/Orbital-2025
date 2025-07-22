@@ -1,7 +1,7 @@
-print("--- APP.PY VERSION 14.0 LOADED (SYS IMPORT FIX) ---")
+print("--- APP.PY VERSION 15.0 LOADED (PURE PRINT LOGGING) ---")
 import sys
-import logging
-logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
+# import logging
+# logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
 
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
@@ -395,9 +395,9 @@ def upload_and_process():
             num_changes = 4
 
             modified_img_array, differences = apply_changes(original_img_array, num_changes)
-            logging.info(f"Backend: Differences generated: {len(differences)}")
+            print(f"Backend: Differences generated: {len(differences)}")
 
-            logging.info(differences)
+            print(differences)
 
 
             if modified_img_array is None:
