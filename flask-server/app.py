@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 16.0 LOADED (EXPLICIT MISSING FIELD LOGGING) ---")
+print("--- APP.PY VERSION 17.0 LOADED (DEEP SESSION DEBUG) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -254,10 +254,18 @@ def save_game():
         return jsonify({'error': 'Missing fields'}), 400
     
     session_temp_files = session.get("current_game_temp_files")
+    print(f"[/save-game] DEBUG: session_temp_files: {session_temp_files} (Type: {type(session_temp_files)})")
+    if session_temp_files:
+        print(f"[/save-game] DEBUG: session_temp_files['original']: {session_temp_files.get('original')} (Type: {type(session_temp_files.get('original'))})")
+        print(f"[/save-game] DEBUG: session_temp_files['modified']: {session_temp_files.get('modified')} (Type: {type(session_temp_files.get('modified'))})")
+        print(f"[/save-game] DEBUG: request original_image_local_path: {original_path} (Type: {type(original_path)})")
+        print(f"[/save-game] DEBUG: request modified_image_local_path: {modified_path} (Type: {type(modified_path)})")
     if not session_temp_files or \
        session_temp_files.get('original') != original_path or \
        session_temp_files.get('modified') != modified_path:
-        app.logger.error(f"Security alert: Mismatch in local image paths for user {user_id}. Session: {session_temp_files}, Request: {original_path}, {modified_path}")
+        print(f"SECURITY ALERT: Mismatch in local image paths for user {user_id}.")
+        print(f"Session data: {session_temp_files}")
+        print(f"Request data: Original={original_path}, Modified={modified_path}")
         return jsonify({'error': 'Invalid image paths provided. Session mismatch.'}), 400
 
     try:
@@ -271,6 +279,7 @@ def save_game():
         # Generate unique folder name for Cloudinary based on username and timestamp
         timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
         cloudinary_folder_name = f"spotthedifference/{user_id}_{timestamp_str}"
+        print(f"[/save-game] Cloudinary folder name: {cloudinary_folder_name}")
 
         # Upload images to Cloudinary
         cloudinary_original_response = cloud_upload.upload(original_path, folder=cloudinary_folder_name)
@@ -279,12 +288,21 @@ def save_game():
         original_url = cloudinary_original_response['secure_url']
         modified_url = cloudinary_modified_response['secure_url']
 
+        print(f"[/save-game] Cloudinary original URL: {original_url}")
+        print(f"[/save-game] Cloudinary modified URL: {modified_url}")
+
         # Clean up local files after upload
         try:
-            os.remove(original_path)
-            os.remove(modified_path)
+            if os.path.exists(original_path):
+                os.remove(original_path)
+                print(f"Deleted local original file: {original_path}")
+            if os.path.exists(modified_path):
+                os.remove(modified_path)
+                print(f"Deleted local modified file: {modified_path}")
         except Exception as e:
             print(f"Error deleting local files after Cloudinary upload: {e}")
+
+        session.pop("current_game_temp_files", None)
 
         game = GameRecord(
             user_id=user_id,
