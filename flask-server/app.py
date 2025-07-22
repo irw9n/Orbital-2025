@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 15.0 LOADED (PURE PRINT LOGGING) ---")
+print("--- APP.PY VERSION 16.0 LOADED (EXPLICIT MISSING FIELD LOGGING) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -228,6 +228,23 @@ def save_game():
     print(f"[/save-game] Received score: {score}")
     print(f"[/save-game] Received total: {total}")
     print(f"[/save-game] Received time_taken: {time_taken}")
+
+    missing_fields = []
+    if not original_path:
+        missing_fields.append('original_image_local_path')
+    if not modified_path:
+        missing_fields.append('modified_image_local_path')
+    # For score, total, and time_taken, check for None explicitly, as 0 is a valid value
+    if score is None:
+        missing_fields.append('score')
+    if total is None:
+        missing_fields.append('total')
+    if time_taken is None:
+        missing_fields.append('time_taken')
+
+    if missing_fields:
+        print(f"[/save-game] Missing fields detected: {', '.join(missing_fields)}")
+        return jsonify({'error': f"Missing fields: {', '.join(missing_fields)}"}), 400
 
     user = User.query.get(user_id)
     if not user:
