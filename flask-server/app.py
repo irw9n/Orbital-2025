@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 19.0 LOADED (AGGRESSIVE SESSION & REQUEST LOGGING) ---")
+print("--- APP.PY VERSION 20.0 LOADED (REFINED SAVE GAME SECURITY) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -258,29 +258,49 @@ def save_game():
     if not all([user_id, original_path, modified_path, score, total, time_taken]):
         return jsonify({'error': 'Missing fields'}), 400
     
-    session_temp_files = session.get("current_game_temp_files")
-    print(f"[/save-game] DEBUG: session_temp_files: {session_temp_files} (Type: {type(session_temp_files)})")
-    if session_temp_files:
-        print(f"[/save-game] DEBUG: session_temp_files['original']: {session_temp_files.get('original')} (Type: {type(session_temp_files.get('original'))})")
-        print(f"[/save-game] DEBUG: session_temp_files['modified']: {session_temp_files.get('modified')} (Type: {type(session_temp_files.get('modified'))})")
-        # print(f"[/save-game] DEBUG: request original_image_local_path: {original_path} (Type: {type(original_path)})")
-        # print(f"[/save-game] DEBUG: request modified_image_local_path: {modified_path} (Type: {type(modified_path)})")
+    # Ensure the provided paths are within the UPLOAD_FOLDER and exist
+    base_upload_path = os.path.abspath(UPLOAD_FOLDER)
     
-    normalized_request_original_path = os.path.normpath(original_path)
-    normalized_request_modified_path = os.path.normpath(modified_path)
+    # Normalize and resolve the full paths to prevent directory traversal attacks
+    full_original_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, original_path))
+    full_modified_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, modified_path))
 
-    print(f"[/save-game] DEBUG: Normalized request original_image_local_path: {normalized_request_original_path} (Type: {type(normalized_request_original_path)})")
-    print(f"[/save-game] DEBUG: Normalized request modified_image_local_path: {normalized_request_modified_path} (Type: {type(normalized_request_modified_path)})")
+    print(f"[/save-game] DEBUG: Base upload path: {base_upload_path}")
+    print(f"[/save-game] DEBUG: Full original path: {full_original_path}")
+    print(f"[/save-game] DEBUG: Full modified path: {full_modified_path}")
 
-    if not session_temp_files:
-        print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
-        return jsonify({'error': 'Invalid image paths provided. Session data missing.'}), 400
-    elif os.path.normpath(session_temp_files.get('original', '')) != normalized_request_original_path or \
-         os.path.normpath(session_temp_files.get('modified', '')) != normalized_request_modified_path:
-        print(f"SECURITY ALERT: Mismatch in local image paths for user {user_id}.")
-        print(f"Session data (normalized): Original={os.path.normpath(session_temp_files.get('original', ''))}, Modified={os.path.normpath(session_temp_files.get('modified', ''))}")
-        print(f"Request data (normalized): Original={normalized_request_original_path}, Modified={normalized_request_modified_path}")
-        return jsonify({'error': 'Invalid image paths provided. Session mismatch.'}), 400
+    # Check if paths are within the UPLOAD_FOLDER and if the files exist
+    if not (full_original_path.startswith(base_upload_path) and os.path.exists(full_original_path)):
+        print(f"SECURITY ALERT: Invalid or non-existent original image path: {original_path}")
+        return jsonify({'error': 'Invalid original image path provided.'}), 400
+    
+    if not (full_modified_path.startswith(base_upload_path) and os.path.exists(full_modified_path)):
+        print(f"SECURITY ALERT: Invalid or non-existent modified image path: {modified_path}")
+        return jsonify({'error': 'Invalid modified image path provided.'}), 400
+    
+    # session_temp_files = session.get("current_game_temp_files")
+    # print(f"[/save-game] DEBUG: session_temp_files: {session_temp_files} (Type: {type(session_temp_files)})")
+    # if session_temp_files:
+    #     print(f"[/save-game] DEBUG: session_temp_files['original']: {session_temp_files.get('original')} (Type: {type(session_temp_files.get('original'))})")
+    #     print(f"[/save-game] DEBUG: session_temp_files['modified']: {session_temp_files.get('modified')} (Type: {type(session_temp_files.get('modified'))})")
+    #     # print(f"[/save-game] DEBUG: request original_image_local_path: {original_path} (Type: {type(original_path)})")
+    #     # print(f"[/save-game] DEBUG: request modified_image_local_path: {modified_path} (Type: {type(modified_path)})")
+    
+    # normalized_request_original_path = os.path.normpath(original_path)
+    # normalized_request_modified_path = os.path.normpath(modified_path)
+
+    # print(f"[/save-game] DEBUG: Normalized request original_image_local_path: {normalized_request_original_path} (Type: {type(normalized_request_original_path)})")
+    # print(f"[/save-game] DEBUG: Normalized request modified_image_local_path: {normalized_request_modified_path} (Type: {type(normalized_request_modified_path)})")
+
+    # if not session_temp_files:
+    #     print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
+    #     return jsonify({'error': 'Invalid image paths provided. Session data missing.'}), 400
+    # elif os.path.normpath(session_temp_files.get('original', '')) != normalized_request_original_path or \
+    #      os.path.normpath(session_temp_files.get('modified', '')) != normalized_request_modified_path:
+    #     print(f"SECURITY ALERT: Mismatch in local image paths for user {user_id}.")
+    #     print(f"Session data (normalized): Original={os.path.normpath(session_temp_files.get('original', ''))}, Modified={os.path.normpath(session_temp_files.get('modified', ''))}")
+    #     print(f"Request data (normalized): Original={normalized_request_original_path}, Modified={normalized_request_modified_path}")
+    #     return jsonify({'error': 'Invalid image paths provided. Session mismatch.'}), 400
 
     try:
 
