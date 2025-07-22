@@ -1,4 +1,8 @@
-print("--- APP.PY VERSION 13.0 LOADED (DETAILED SAVE GAME DEBUG) ---")
+print("--- APP.PY VERSION 14.0 LOADED (SYS IMPORT FIX) ---")
+import sys
+import logging
+logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
+
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
@@ -6,9 +10,7 @@ import os
 import cv2
 import numpy as np
 import random
-import logging
-logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
-import sys
+
 import urllib.parse, requests, tempfile
 from datetime import datetime, timezone
 # for securing user password
