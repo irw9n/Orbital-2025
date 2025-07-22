@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 18.0 LOADED (PATH NORM & SESSION MOD) ---")
+print("--- APP.PY VERSION 19.0 LOADED (AGGRESSIVE SESSION & REQUEST LOGGING) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -216,6 +216,10 @@ def save_game():
     data = request.json
     user_id = session.get('user_id')
 
+    print(f"[/save-game] User ID from session: {user_id}")
+    print(f"[/save-game] Full session: {session}") # NEW: Print entire session
+    print(f"[/save-game] Raw request data: {request.json}") # NEW: Print raw request data
+
     original_path = data.get('original_image_path')
     modified_path = data.get('modified_image_path')
     score = data.get('score')
@@ -244,6 +248,7 @@ def save_game():
 
     if missing_fields:
         print(f"[/save-game] Missing fields detected: {', '.join(missing_fields)}")
+        print(f"[/save-game] Received data: {data}")
         return jsonify({'error': f"Missing fields: {', '.join(missing_fields)}"}), 400
 
     user = User.query.get(user_id)
@@ -458,10 +463,12 @@ def upload_and_process():
                     "original": original_filepath,
                     "modified": modified_filepath
                 }
-                app.logger.info(f"Stored temp file paths in session for user {user_id}: {session['current_game_temp_files']}")
+                session.modified = True # Explicitly mark session as modified
+                print(f"Stored temp file paths in session for user {user_id}: {session['current_game_temp_files']}")
+                print(f"Session explicitly marked as modified: {session.modified}") # NEW: Confirm session.modified
             else:
                 session.setdefault("guest_files", []).extend([original_filepath, modified_filepath]) # saves filepaths to session["guest_files"]
-                app.logger.info(f"Stored temp file paths for guest: {session['guest_files']}")
+                print(f"Stored temp file paths for guest: {session['guest_files']}")
             
             # Return the local file paths (you can serve these via Flask route if needed)
             return jsonify({
