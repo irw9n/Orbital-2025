@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 17.0 LOADED (DEEP SESSION DEBUG) ---")
+print("--- APP.PY VERSION 18.0 LOADED (PATH NORM & SESSION MOD) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -248,7 +248,7 @@ def save_game():
 
     user = User.query.get(user_id)
     if not user:
-        return jsonify({'error': 'User not logged in'}), 401
+        return jsonify({'error': 'User not logged in'}), 404
 
     if not all([user_id, original_path, modified_path, score, total, time_taken]):
         return jsonify({'error': 'Missing fields'}), 400
@@ -258,14 +258,23 @@ def save_game():
     if session_temp_files:
         print(f"[/save-game] DEBUG: session_temp_files['original']: {session_temp_files.get('original')} (Type: {type(session_temp_files.get('original'))})")
         print(f"[/save-game] DEBUG: session_temp_files['modified']: {session_temp_files.get('modified')} (Type: {type(session_temp_files.get('modified'))})")
-        print(f"[/save-game] DEBUG: request original_image_local_path: {original_path} (Type: {type(original_path)})")
-        print(f"[/save-game] DEBUG: request modified_image_local_path: {modified_path} (Type: {type(modified_path)})")
-    if not session_temp_files or \
-       session_temp_files.get('original') != original_path or \
-       session_temp_files.get('modified') != modified_path:
+        # print(f"[/save-game] DEBUG: request original_image_local_path: {original_path} (Type: {type(original_path)})")
+        # print(f"[/save-game] DEBUG: request modified_image_local_path: {modified_path} (Type: {type(modified_path)})")
+    
+    normalized_request_original_path = os.path.normpath(original_path)
+    normalized_request_modified_path = os.path.normpath(modified_path)
+
+    print(f"[/save-game] DEBUG: Normalized request original_image_local_path: {normalized_request_original_path} (Type: {type(normalized_request_original_path)})")
+    print(f"[/save-game] DEBUG: Normalized request modified_image_local_path: {normalized_request_modified_path} (Type: {type(normalized_request_modified_path)})")
+
+    if not session_temp_files:
+        print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
+        return jsonify({'error': 'Invalid image paths provided. Session data missing.'}), 400
+    elif os.path.normpath(session_temp_files.get('original', '')) != normalized_request_original_path or \
+         os.path.normpath(session_temp_files.get('modified', '')) != normalized_request_modified_path:
         print(f"SECURITY ALERT: Mismatch in local image paths for user {user_id}.")
-        print(f"Session data: {session_temp_files}")
-        print(f"Request data: Original={original_path}, Modified={modified_path}")
+        print(f"Session data (normalized): Original={os.path.normpath(session_temp_files.get('original', ''))}, Modified={os.path.normpath(session_temp_files.get('modified', ''))}")
+        print(f"Request data (normalized): Original={normalized_request_original_path}, Modified={normalized_request_modified_path}")
         return jsonify({'error': 'Invalid image paths provided. Session mismatch.'}), 400
 
     try:
