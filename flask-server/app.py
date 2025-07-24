@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 23.0 LOADED (CORRECTED CLOUDINARY ID COMPARISON) ---")
+print("--- APP.PY VERSION 24.0 LOADED (CONFIGURABLE SESSION SECURITY) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -12,7 +12,7 @@ import numpy as np
 import random
 
 import urllib.parse, requests, tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 # for securing user password
 from werkzeug.security import generate_password_hash, check_password_hash 
 # import libraries to initialize cloudinary for image storage
@@ -27,10 +27,15 @@ from functools import wraps
 app = Flask(__name__)
 # initialize secret key for session management and CSRF protection
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
+IS_LOCAL_DEV = os.getenv('IS_LOCAL_DEV', 'False').lower() == 'true'
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = not IS_LOCAL_DEV
 app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
 print(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
+print(f"SESSION_COOKIE_SECURE set to: {app.config['SESSION_COOKIE_SECURE']} (IS_LOCAL_DEV={IS_LOCAL_DEV})")
+
+# app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+
 
 
 
@@ -241,6 +246,8 @@ def update_stats():
 def save_game():
     data = request.json
     user_id = session.get('user_id')
+    print(f"[/save-game] User ID from session: {user_id}")
+    print(f"[/save-game] Full session at start of save-game: {session}")
 
     print(f"[/save-game] User ID from session: {user_id}")
     print(f"[/save-game] Full session: {session}") # NEW: Print entire session
@@ -751,4 +758,3 @@ if __name__ == '__main__':
         os.makedirs(objects_path)
 
     app.run(debug=True, port=5000)
-    
