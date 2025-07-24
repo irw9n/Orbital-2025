@@ -1,7 +1,10 @@
-print("--- APP.PY VERSION 24.0 LOADED (CONFIGURABLE SESSION SECURITY) ---")
+print("--- APP.PY VERSION 25.0 LOADED (EXPLICIT SESSION_COOKIE_SECURE) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
@@ -29,7 +32,8 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 IS_LOCAL_DEV = os.getenv('IS_LOCAL_DEV', 'False').lower() == 'true'
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
-app.config['SESSION_COOKIE_SECURE'] = not IS_LOCAL_DEV
+FLASK_SESSION_SECURE_COOKIE = os.getenv('FLASK_SESSION_SECURE_COOKIE', 'True').lower() == 'true'
+app.config['SESSION_COOKIE_SECURE'] = FLASK_SESSION_SECURE_COOKIE
 app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
 print(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
 print(f"SESSION_COOKIE_SECURE set to: {app.config['SESSION_COOKIE_SECURE']} (IS_LOCAL_DEV={IS_LOCAL_DEV})")
