@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 22.0 LOADED (LOGGED-IN USER CLOUDINARY CLEANUP) ---")
+print("--- APP.PY VERSION 23.0 LOADED (CORRECTED CLOUDINARY ID COMPARISON) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -30,7 +30,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
-app.logger.info(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
+print(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
 
 
 
@@ -111,6 +111,31 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def extract_public_id_from_url(url):
+    if not url:
+        return None
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+        path_segments = parsed_url.path.split('/')
+
+        if 'upload' in path_segments:
+            upload_index = path_segments.index('upload')
+
+            if upload_index + 1 < len(path_segments) and path_segments[upload_index + 1].startswith('v'):
+                public_id_parts = path_segments[upload_index + 2:]
+            else:
+                public_id_parts = path_segments[upload_index + 1:]
+
+            full_public_id = '/'.join(public_id_parts)
+            if '.' in full_public_id:
+                return full_public_id.rsplit('.', 1)[0]
+            return full_public_id
+    except Exception as e:
+        print(f"Error extracting public ID from URL {url}: {e}")
+        return None
+    return None
+
+
 # Backend for handling user data when registering new user
 @app.route('/register', methods=['POST'])
 def register_user():
@@ -130,7 +155,7 @@ def register_user():
         db.session.add(user)
         db.session.commit()
 
-        return jsonify({'message': 'User created', 'user_id': user.id})
+        return jsonify({'message': 'User created', 'user_id': user.id}), 201
     
     except Exception as e:
         app.logger.error(f"[REGISTER ERROR] {e}")
@@ -254,25 +279,33 @@ def save_game():
 
     user = User.query.get(user_id)
     if not user:
+        print(f"[/save-game] Error: User not found for ID: {user_id}")
         return jsonify({'error': 'User not logged in'}), 404
     
     session_temp_files = session.get("current_game_temp_files")
 
+    # Extract public IDs from the incoming Cloudinary URLs
+    request_original_public_id = extract_public_id_from_url(original_image_cloudinary_url)
+    request_modified_public_id = extract_public_id_from_url(modified_image_cloudinary_url)
+
     print(f"[/save-game] DEBUG: session_temp_files: {session_temp_files} (Type: {type(session_temp_files)})")
     print(f"[/save-game] DEBUG: Request original_image_cloudinary_url: {original_image_cloudinary_url} (Type: {type(original_image_cloudinary_url)})")
     print(f"[/save-game] DEBUG: Request modified_image_cloudinary_url: {modified_image_cloudinary_url} (Type: {type(modified_image_cloudinary_url)})")
+    print(f"[/save-game] DEBUG: Extracted request original_public_id: {request_original_public_id}")
+    print(f"[/save-game] DEBUG: Extracted request modified_public_id: {request_modified_public_id}")
 
     # if not all([user_id, original_path, modified_path, score, total, time_taken]):
     #     return jsonify({'error': 'Missing fields'}), 400
 
+    # Check for session mismatch with Cloudinary public IDs
     if not session_temp_files:
         print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
         return jsonify({'error': 'Invalid image URLs provided. Session data missing.'}), 400
-    elif session_temp_files.get('original') != original_image_cloudinary_url or \
-         session_temp_files.get('modified') != modified_image_cloudinary_url:
+    elif session_temp_files.get('original_public_id') != original_image_cloudinary_url or \
+         session_temp_files.get('modified_public_id') != modified_image_cloudinary_url:
         print(f"SECURITY ALERT: Mismatch in Cloudinary URLs for user {user_id}.")
-        print(f"Session data: Original={session_temp_files.get('original')}, Modified={session_temp_files.get('modified')}")
-        print(f"Request data: Original={original_image_cloudinary_url}, Modified={modified_image_cloudinary_url}")
+        print(f"Session data: Original Public ID={session_temp_files.get('original_public_id')}, Modified Public ID={session_temp_files.get('modified_public_id')}")
+        print(f"Request data: Original Public ID={request_original_public_id}, Modified Public ID={request_modified_public_id}")
         return jsonify({'error': 'Invalid image URLs provided. Session mismatch.'}), 400
     
 
@@ -364,14 +397,13 @@ def save_game():
         print(f"[/save-game] Cloudinary original URL (from request): {original_url}")
         print(f"[/save-game] Cloudinary modified URL (from request): {modified_url}")
 
-        # Extract public IDs for deletion later if needed (optional, but good practice)
-        # Example: "https://res.cloudinary.com/your_cloud_name/image/upload/v1234567890/folder/image_name.jpg"
-        # Public ID would be "folder/image_name"
-        original_public_id = '/'.join(original_url.split('/')[-2:]).split('.')[0]
-        modified_public_id = '/'.join(modified_url.split('/')[-2:]).split('.')[0]
-        print(f"[/save-game] Original public ID: {original_public_id}")
-        print(f"[/save-game] Modified public ID: {modified_public_id}")
+
+        # original_public_id = '/'.join(original_url.split('/')[-2:]).split('.')[0]
+        # modified_public_id = '/'.join(modified_url.split('/')[-2:]).split('.')[0]
+        # print(f"[/save-game] Original public ID: {original_public_id}")
+        # print(f"[/save-game] Modified public ID: {modified_public_id}")
         session.pop("current_game_temp_files", None)
+        session.modified = True
 
         game = GameRecord(
             user_id=user_id,
@@ -384,7 +416,7 @@ def save_game():
         db.session.add(game)
         db.session.commit()
 
-        return jsonify({'message': 'Game saved', 'record_id': game.id}), 201
+        return jsonify({'message': 'Game saved to DB and images uploaded to Cloudinary!', 'record_id': game.id}), 201
 
     except Exception as e:
         db.session.rollback()
@@ -396,6 +428,9 @@ def save_game():
 @app.route('/user/<int:user_id>/history')
 @login_required
 def game_history(user_id):
+    if user_id != session.get("user_id"):
+        return jsonify({"error": "Unauthorized: Cannot view another user's history."}), 403
+    
     user = User.query.get_or_404(user_id)
     games = [{
         'original_image': g.original_image_path,
@@ -406,15 +441,14 @@ def game_history(user_id):
         'played_at': g.played_at.isoformat()
     } for g in user.game_records]
 
-    return jsonify({'username': user.username, 'games': games})
+    return jsonify({'username': user.username, 'games': games}), 200
 
 
 @app.route('/test-session', methods=['GET'])
 def test_session():
     user_id = session.get("user_id")
-    app.logger.info(f"[/test-session] User ID from session: {user_id}")
-    # app.logger.info(f"[/test-session] Request Headers: {request.headers}")
-    # app.logger.info(f"[/test-session] Request Cookies: {request.cookies}")
+    print(f"[/test-session] User ID from session: {user_id}")
+
     if user_id:
         return jsonify({"message": "Session active", "user_id": user_id}), 200
     else:
@@ -446,8 +480,7 @@ def allowed_file(filename):
 def upload_and_process():
     # Check sessions to see if user is logged in
     user_id = session.get("user_id")
-    print(f"[/test-session] User ID from session: {user_id}")
-    app.logger.info(f"[/upload-and-process] User ID from session: {user_id}")
+    print(f"[/upload-and-process] User ID from session: {user_id}")
     # app.logger.info(f"Request Headers: {request.headers}")
     # app.logger.info(f"Request Cookies: {request.cookies}")
 
@@ -545,11 +578,12 @@ def upload_and_process():
             # }), 200
 
 
-
+            # Upload images to Cloudinary directly from memory
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
 
             temp_folder_name = f"temp_spotthedifference/{user_id or 'guest'}_{timestamp}"
 
+            # Encode images to bytes for Cloudinary upload
             _, original_buffer = cv2.imencode('.png', original_img_array)
             original_bytes = original_buffer.tobytes()
 
@@ -564,6 +598,7 @@ def upload_and_process():
             original_url = cloudinary_original_response['secure_url']
             modified_url = cloudinary_modified_response['secure_url']
 
+            # Store Cloudinary public IDs in session for logged-in users for later deletion
             if user_id:
                 session["current_game_temp_files"] = {
                     "original_public_id": cloudinary_original_response['public_id'],
@@ -588,10 +623,10 @@ def upload_and_process():
                 'modifiedImageUrl': modified_url,
                 'original_image_cloudinary_url': original_url,
                 'modified_image_cloudinary_url': modified_url,
+                'original_public_id': cloudinary_original_response['public_id'],
+                'modified_public_id': cloudinary_modified_response['public_id'],
                 'rawDifferencesForFrontendDemo': differences
-            }), 200
-            
-
+            }), 200            
 
         except Exception as e:
             print(f"Server error during processing: {e}")
@@ -601,13 +636,15 @@ def upload_and_process():
     return jsonify({'error': 'Invalid file type'}), 400
 
 
-# Route to serve the uploaded/modified files (only needed if serving files from own internal server storage)
+# Route to serve the uploaded/modified files (~only needed if serving files from own internal server storage~ edit:now deprecated as images are served directly from Cloudinary)
 @app.route(f'/{UPLOAD_FOLDER}/<filename>')
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    # return send_from_directory(UPLOAD_FOLDER, filename)
+    return jsonify({'error': 'Local file serving deprecated. Images served from Cloudinary.'}), 404
 
 
-# Route for deleting imageswithin session["guest_files"]
+
+# Route for deleting guest images from Cloudinary
 @app.route("/cleanup-guest-files", methods=["POST"])
 def cleanup_guest_files():
 #     files = session.pop("guest_files", [])
@@ -679,7 +716,7 @@ def generate_ai_image():
     data = request.get_json()
     prompt = data.get("prompt", "").strip()
     if not prompt:
-        return jsonify({"Error": "No Prompt Given"})
+        return jsonify({"Error": "No Prompt Given"}), 400
     # Prompt AI to only give cartoon images
     prompt = f"cartoon style {prompt}"
     encoded_prompt = urllib.parse.quote(prompt)
@@ -697,7 +734,7 @@ def generate_ai_image():
     )
 
     if pollination_request.status_code != 200:
-        app.logger.error(f"Pollinations error {pollination_request.status_code}: {pollination_request.text[:200]}")
+        print(f"Pollinations error {pollination_request.status_code}: {pollination_request.text[:200]}")
         return jsonify({"error": "Pollination AI generation failed"}), 502
     
 
@@ -714,4 +751,4 @@ if __name__ == '__main__':
         os.makedirs(objects_path)
 
     app.run(debug=True, port=5000)
-
+    
