@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 20.0 LOADED (REFINED SAVE GAME SECURITY) ---")
+print("--- APP.PY VERSION 22.0 LOADED (LOGGED-IN USER CLOUDINARY CLEANUP) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -18,6 +18,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 # import libraries to initialize cloudinary for image storage
 import cloudinary
 import cloudinary.uploader as cloud_upload
+import cloudinary.api as cloud_api
 from image_processing import apply_changes
 from functools import wraps
 
@@ -220,24 +221,24 @@ def save_game():
     print(f"[/save-game] Full session: {session}") # NEW: Print entire session
     print(f"[/save-game] Raw request data: {request.json}") # NEW: Print raw request data
 
-    original_path = data.get('original_image_path')
-    modified_path = data.get('modified_image_path')
+    original_image_cloudinary_url = data.get('original_image_cloudinary_url')
+    modified_image_cloudinary_url = data.get('modified_image_cloudinary_url')
     score = data.get('score')
     total = data.get('total')
     time_taken = data.get('time_taken')
 
     print(f"[/save-game] User ID from session: {user_id}")
-    print(f"[/save-game] Received original_image_local_path: {original_path}")
-    print(f"[/save-game] Received modified_image_local_path: {modified_path}")
+    print(f"[/save-game] Received original_image_local_path: {'original_image_cloudinary_url'}")
+    print(f"[/save-game] Received modified_image_local_path: {'modified_image_cloudinary_url'}")
     print(f"[/save-game] Received score: {score}")
     print(f"[/save-game] Received total: {total}")
     print(f"[/save-game] Received time_taken: {time_taken}")
 
     missing_fields = []
-    if not original_path:
-        missing_fields.append('original_image_local_path')
-    if not modified_path:
-        missing_fields.append('modified_image_local_path')
+    if not original_image_cloudinary_url:
+        missing_fields.append('original_image_cloudinary_url')
+    if not modified_image_cloudinary_url:
+        missing_fields.append('modified_image_cloudinary_url')
     # For score, total, and time_taken, check for None explicitly, as 0 is a valid value
     if score is None:
         missing_fields.append('score')
@@ -254,29 +255,47 @@ def save_game():
     user = User.query.get(user_id)
     if not user:
         return jsonify({'error': 'User not logged in'}), 404
-
-    if not all([user_id, original_path, modified_path, score, total, time_taken]):
-        return jsonify({'error': 'Missing fields'}), 400
     
-    # Ensure the provided paths are within the UPLOAD_FOLDER and exist
-    base_upload_path = os.path.abspath(UPLOAD_FOLDER)
-    
-    # Normalize and resolve the full paths to prevent directory traversal attacks
-    full_original_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, original_path))
-    full_modified_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, modified_path))
+    session_temp_files = session.get("current_game_temp_files")
 
-    print(f"[/save-game] DEBUG: Base upload path: {base_upload_path}")
-    print(f"[/save-game] DEBUG: Full original path: {full_original_path}")
-    print(f"[/save-game] DEBUG: Full modified path: {full_modified_path}")
+    print(f"[/save-game] DEBUG: session_temp_files: {session_temp_files} (Type: {type(session_temp_files)})")
+    print(f"[/save-game] DEBUG: Request original_image_cloudinary_url: {original_image_cloudinary_url} (Type: {type(original_image_cloudinary_url)})")
+    print(f"[/save-game] DEBUG: Request modified_image_cloudinary_url: {modified_image_cloudinary_url} (Type: {type(modified_image_cloudinary_url)})")
 
-    # Check if paths are within the UPLOAD_FOLDER and if the files exist
-    if not (full_original_path.startswith(base_upload_path) and os.path.exists(full_original_path)):
-        print(f"SECURITY ALERT: Invalid or non-existent original image path: {original_path}")
-        return jsonify({'error': 'Invalid original image path provided.'}), 400
+    # if not all([user_id, original_path, modified_path, score, total, time_taken]):
+    #     return jsonify({'error': 'Missing fields'}), 400
+
+    if not session_temp_files:
+        print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
+        return jsonify({'error': 'Invalid image URLs provided. Session data missing.'}), 400
+    elif session_temp_files.get('original') != original_image_cloudinary_url or \
+         session_temp_files.get('modified') != modified_image_cloudinary_url:
+        print(f"SECURITY ALERT: Mismatch in Cloudinary URLs for user {user_id}.")
+        print(f"Session data: Original={session_temp_files.get('original')}, Modified={session_temp_files.get('modified')}")
+        print(f"Request data: Original={original_image_cloudinary_url}, Modified={modified_image_cloudinary_url}")
+        return jsonify({'error': 'Invalid image URLs provided. Session mismatch.'}), 400
     
-    if not (full_modified_path.startswith(base_upload_path) and os.path.exists(full_modified_path)):
-        print(f"SECURITY ALERT: Invalid or non-existent modified image path: {modified_path}")
-        return jsonify({'error': 'Invalid modified image path provided.'}), 400
+
+
+    # # Ensure the provided paths are within the UPLOAD_FOLDER and exist
+    # base_upload_path = os.path.abspath(UPLOAD_FOLDER)
+    
+    # # Normalize and resolve the full paths to prevent directory traversal attacks
+    # full_original_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, original_path))
+    # full_modified_path = os.path.abspath(os.path.join(UPLOAD_FOLDER, modified_path))
+
+    # print(f"[/save-game] DEBUG: Base upload path: {base_upload_path}")
+    # print(f"[/save-game] DEBUG: Full original path: {full_original_path}")
+    # print(f"[/save-game] DEBUG: Full modified path: {full_modified_path}")
+
+    # # Check if paths are within the UPLOAD_FOLDER and if the files exist
+    # if not (full_original_path.startswith(base_upload_path) and os.path.exists(full_original_path)):
+    #     print(f"SECURITY ALERT: Invalid or non-existent original image path: {original_path}")
+    #     return jsonify({'error': 'Invalid original image path provided.'}), 400
+    
+    # if not (full_modified_path.startswith(base_upload_path) and os.path.exists(full_modified_path)):
+    #     print(f"SECURITY ALERT: Invalid or non-existent modified image path: {modified_path}")
+    #     return jsonify({'error': 'Invalid modified image path provided.'}), 400
     
     # session_temp_files = session.get("current_game_temp_files")
     # print(f"[/save-game] DEBUG: session_temp_files: {session_temp_files} (Type: {type(session_temp_files)})")
@@ -302,40 +321,56 @@ def save_game():
     #     print(f"Request data (normalized): Original={normalized_request_original_path}, Modified={normalized_request_modified_path}")
     #     return jsonify({'error': 'Invalid image paths provided. Session mismatch.'}), 400
 
+#####CLOUDINARY UPLOAD LOGIC########
+    # try:
+
+    #     # original_filename = os.path.basename(original_path)
+    #     # modified_filename = os.path.basename(modified_path)
+
+    #     # original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
+    #     # modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
+
+    #     # Generate unique folder name for Cloudinary based on username and timestamp
+    #     timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    #     cloudinary_folder_name = f"spotthedifference/{user_id}_{timestamp_str}"
+    #     print(f"[/save-game] Cloudinary folder name: {cloudinary_folder_name}")
+
+    #     # Upload images to Cloudinary
+    #     cloudinary_original_response = cloud_upload.upload(original_path, folder=cloudinary_folder_name)
+    #     cloudinary_modified_response = cloud_upload.upload(modified_path, folder=cloudinary_folder_name)
+
+    #     original_url = cloudinary_original_response['secure_url']
+    #     modified_url = cloudinary_modified_response['secure_url']
+
+    #     print(f"[/save-game] Cloudinary original URL: {original_url}")
+    #     print(f"[/save-game] Cloudinary modified URL: {modified_url}")
+
+    #     # Clean up local files after upload
+    #     try:
+    #         if os.path.exists(original_path):
+    #             os.remove(original_path)
+    #             print(f"Deleted local original file: {original_path}")
+    #         if os.path.exists(modified_path):
+    #             os.remove(modified_path)
+    #             print(f"Deleted local modified file: {modified_path}")
+    #     except Exception as e:
+    #         print(f"Error deleting local files after Cloudinary upload: {e}")
+    
     try:
+        # No need to upload again, URLs are already on Cloudinary
+        original_url = original_image_cloudinary_url
+        modified_url = modified_image_cloudinary_url
+        
+        print(f"[/save-game] Cloudinary original URL (from request): {original_url}")
+        print(f"[/save-game] Cloudinary modified URL (from request): {modified_url}")
 
-        # original_filename = os.path.basename(original_path)
-        # modified_filename = os.path.basename(modified_path)
-
-        # original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
-        # modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
-
-        # Generate unique folder name for Cloudinary based on username and timestamp
-        timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-        cloudinary_folder_name = f"spotthedifference/{user_id}_{timestamp_str}"
-        print(f"[/save-game] Cloudinary folder name: {cloudinary_folder_name}")
-
-        # Upload images to Cloudinary
-        cloudinary_original_response = cloud_upload.upload(original_path, folder=cloudinary_folder_name)
-        cloudinary_modified_response = cloud_upload.upload(modified_path, folder=cloudinary_folder_name)
-
-        original_url = cloudinary_original_response['secure_url']
-        modified_url = cloudinary_modified_response['secure_url']
-
-        print(f"[/save-game] Cloudinary original URL: {original_url}")
-        print(f"[/save-game] Cloudinary modified URL: {modified_url}")
-
-        # Clean up local files after upload
-        try:
-            if os.path.exists(original_path):
-                os.remove(original_path)
-                print(f"Deleted local original file: {original_path}")
-            if os.path.exists(modified_path):
-                os.remove(modified_path)
-                print(f"Deleted local modified file: {modified_path}")
-        except Exception as e:
-            print(f"Error deleting local files after Cloudinary upload: {e}")
-
+        # Extract public IDs for deletion later if needed (optional, but good practice)
+        # Example: "https://res.cloudinary.com/your_cloud_name/image/upload/v1234567890/folder/image_name.jpg"
+        # Public ID would be "folder/image_name"
+        original_public_id = '/'.join(original_url.split('/')[-2:]).split('.')[0]
+        modified_public_id = '/'.join(modified_url.split('/')[-2:]).split('.')[0]
+        print(f"[/save-game] Original public ID: {original_public_id}")
+        print(f"[/save-game] Modified public ID: {modified_public_id}")
         session.pop("current_game_temp_files", None)
 
         game = GameRecord(
@@ -426,23 +461,34 @@ def upload_and_process():
     if file and allowed_file(file.filename):
         try:
             
-            timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-            # obtain image type (e.g. jpg, jpeg)
-            original_extension = file.filename.rsplit('.', 1)[1].lower()
-            original_filename = f"original_{timestamp}.{original_extension}"
-            modified_filename = f"modified_{timestamp}.{original_extension}" # Keep same extension for modified
+            ######################
+            # timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+            # # obtain image type (e.g. jpg, jpeg)
+            # original_extension = file.filename.rsplit('.', 1)[1].lower()
+            # original_filename = f"original_{timestamp}.{original_extension}"
+            # modified_filename = f"modified_{timestamp}.{original_extension}" # Keep same extension for modified
 
-            original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
-            modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
+            # original_filepath = os.path.join(UPLOAD_FOLDER, original_filename)
+            # modified_filepath = os.path.join(UPLOAD_FOLDER, modified_filename)
 
-            # Save original image
-            file.save(original_filepath)
-            print(f"Original image saved to: {original_filepath}")
+            # # Save original image
+            # file.save(original_filepath)
+            # print(f"Original image saved to: {original_filepath}")
 
-            # Load image with OpenCV for processing
-            original_img_array = cv2.imread(original_filepath)
+            # # Load image with OpenCV for processing
+            # original_img_array = cv2.imread(original_filepath)
+            # if original_img_array is None:
+            #     return jsonify({'error': 'Could not read original image file (OpenCV failed to load)'}), 500
+            ###################
+
+            filestr = file.read()
+            np_img = np.frombuffer(filestr, np.uint8)
+            original_img_array = cv2.imdecode(np_img, cv2.IMREAD_COLOR)
+
             if original_img_array is None:
-                return jsonify({'error': 'Could not read original image file (OpenCV failed to load)'}), 500
+                return jsonify({'error': 'Could not read original image file (OpenCV failed to load from memory)'}), 500
+            
+
 
             # resize the original image to an approriate size for preprocessing
             fixed_width = 640
@@ -457,7 +503,7 @@ def upload_and_process():
             original_img_array = cv2.resize(original_img_array, (fixed_width, new_height))
 
             # Save the resized original image
-            cv2.imwrite(original_filepath, original_img_array)
+            # cv2.imwrite(original_filepath, original_img_array)
 
 
             # apply image modifications
@@ -465,7 +511,6 @@ def upload_and_process():
 
             modified_img_array, differences = apply_changes(original_img_array, num_changes)
             print(f"Backend: Differences generated: {len(differences)}")
-
             print(differences)
 
 
@@ -475,29 +520,78 @@ def upload_and_process():
                 differences = [] # No changes if manipulation failed
 
             # Save modified image from a numpy array to file before uploading into cloudinary
-            cv2.imwrite(modified_filepath, modified_img_array)
+            # cv2.imwrite(modified_filepath, modified_img_array)
 
             # enable guest_files tracking filepath to track and delete images from guest once they're done with the game.
+            # if user_id:
+            #     session["current_game_temp_files"] = {
+            #         "original": original_filepath,
+            #         "modified": modified_filepath
+            #     }
+            #     session.modified = True # Explicitly mark session as modified
+            #     print(f"Stored temp file paths in session for user {user_id}: {session['current_game_temp_files']}")
+            #     print(f"Session explicitly marked as modified: {session.modified}") # NEW: Confirm session.modified
+            # else:
+            #     session.setdefault("guest_files", []).extend([original_filepath, modified_filepath]) # saves filepaths to session["guest_files"]
+            #     print(f"Stored temp file paths for guest: {session['guest_files']}")
+            
+            # # Return the local file paths (you can serve these via Flask route if needed)
+            # return jsonify({
+            #     'originalImageUrl': f'/{UPLOAD_FOLDER}/{original_filename}',
+            #     'modifiedImageUrl': f'/{UPLOAD_FOLDER}/{modified_filename}',
+            #     'originalImageLocalPath': original_filepath,
+            #     'modifiedImageLocalPath': modified_filepath,
+            #     'rawDifferencesForFrontendDemo': differences
+            # }), 200
+
+
+
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+            temp_folder_name = f"temp_spotthedifference/{user_id or 'guest'}_{timestamp}"
+
+            _, original_buffer = cv2.imencode('.png', original_img_array)
+            original_bytes = original_buffer.tobytes()
+
+            _, modified_buffer = cv2.imencode('.png', modified_img_array)
+            modified_bytes = modified_buffer.tobytes()
+
+            print(f"Uploading original image to Cloudinary folder: {temp_folder_name}")
+            cloudinary_original_response = cloud_upload.upload(original_bytes, folder=temp_folder_name, resource_type="image")
+            print(f"Uploading modified image to Cloudinary folder: {temp_folder_name}")
+            cloudinary_modified_response = cloud_upload.upload(modified_bytes, folder=temp_folder_name, resource_type="image")
+
+            original_url = cloudinary_original_response['secure_url']
+            modified_url = cloudinary_modified_response['secure_url']
+
             if user_id:
                 session["current_game_temp_files"] = {
-                    "original": original_filepath,
-                    "modified": modified_filepath
+                    "original_public_id": cloudinary_original_response['public_id'],
+                    "modified_public_id": cloudinary_modified_response['public_id']
                 }
-                session.modified = True # Explicitly mark session as modified
-                print(f"Stored temp file paths in session for user {user_id}: {session['current_game_temp_files']}")
-                print(f"Session explicitly marked as modified: {session.modified}") # NEW: Confirm session.modified
+                session.modified = True 
+                print(f"Stored Cloudinary public IDs in session for user {user_id}: {session['current_game_temp_files']}")
+                print(f"Session explicitly marked as modified: {session.modified}") 
             else:
-                session.setdefault("guest_files", []).extend([original_filepath, modified_filepath]) # saves filepaths to session["guest_files"]
-                print(f"Stored temp file paths for guest: {session['guest_files']}")
-            
-            # Return the local file paths (you can serve these via Flask route if needed)
+                session.setdefault("guest_cloudinary_public_ids", []).extend([
+                    cloudinary_original_response['public_id'], 
+                    cloudinary_modified_response['public_id']
+                ])
+                session.modified = True
+                print(f"Stored guest Cloudinary public IDs: {session['guest_cloudinary_public_ids']}")
+
+            print(f"Backend returning originalImageUrl: {original_url}")
+            print(f"Backend returning modifiedImageUrl: {modified_url}")
+
             return jsonify({
-                'originalImageUrl': f'/{UPLOAD_FOLDER}/{original_filename}',
-                'modifiedImageUrl': f'/{UPLOAD_FOLDER}/{modified_filename}',
-                'originalImageLocalPath': original_filepath,
-                'modifiedImageLocalPath': modified_filepath,
+                'originalImageUrl': original_url,
+                'modifiedImageUrl': modified_url,
+                'original_image_cloudinary_url': original_url,
+                'modified_image_cloudinary_url': modified_url,
                 'rawDifferencesForFrontendDemo': differences
             }), 200
+            
+
 
         except Exception as e:
             print(f"Server error during processing: {e}")
@@ -516,17 +610,66 @@ def uploaded_file(filename):
 # Route for deleting imageswithin session["guest_files"]
 @app.route("/cleanup-guest-files", methods=["POST"])
 def cleanup_guest_files():
-    files = session.pop("guest_files", [])
-    deleted = []
-    for file in files:
-        try:
-            if os.path.exists(file):
-                os.remove(file)
-                deleted.append(file)
-        except Exception as e:
-            app.logger.warning(f"Failed to delete filepath {file} due to: {e}")
+#     files = session.pop("guest_files", [])
+#     deleted = []
+#     for file in files:
+#         try:
+#             if os.path.exists(file):
+#                 os.remove(file)
+#                 deleted.append(file)
+#         except Exception as e:
+#             app.logger.warning(f"Failed to delete filepath {file} due to: {e}")
     
-    return jsonify({"message": "Guest files Cleaned", 'deleted': deleted})
+#     return jsonify({"message": "Guest files Cleaned", 'deleted': deleted})
+
+    public_ids = session.pop("guest_cloudinary_public_ids", [])
+    deleted_count = 0
+    for public_id in public_ids:
+        try:
+            response = cloud_api.destroy(public_id)
+            if response['result'] == 'ok':
+                deleted_count += 1
+                print(f"Deleted Cloudinary asset: {public_id}")
+            else:
+                print(f"Failed to delete Cloudinary asset {public_id}: {response}")
+        except Exception as e:
+            print(f"Error deleting Cloudinary asset {public_id}: {e}")
+    
+    return jsonify({"message": f"Cleaned up {deleted_count} guest Cloudinary assets."}), 200
+
+@app.route("/delete-user-temp-images", methods=["POST"])
+@login_required
+def delete_user_temp_images():
+    user_id = session.get('user_id')
+    data = request.json
+    public_ids_to_delete = data.get('public_ids', [])
+
+    if not public_ids_to_delete:
+        print(f"[/delete-user-temp-images] No public IDs provided for user {user_id}.")
+        return jsonify({"message": "No images to delete."}), 200
+
+    deleted_count = 0
+    errors = []
+    for public_id in public_ids_to_delete:
+        try:
+            response = cloud_api.destroy(public_id)
+            if response['result'] == 'ok':
+                deleted_count += 1
+                print(f"Deleted Cloudinary asset for user {user_id}: {public_id}")
+            else:
+                print(f"Failed to delete Cloudinary asset {public_id} for user {user_id}: {response}")
+                errors.append(f"Failed to delete {public_id}: {response.get('error', {}).get('message', 'Unknown error')}")
+        except Exception as e:
+            print(f"Error deleting Cloudinary asset {public_id} for user {user_id}: {e}")
+            errors.append(f"Error deleting {public_id}: {str(e)}")
+    
+    # After attempting deletion, clear the session's temporary image tracking
+    session.pop("current_game_temp_files", None)
+    session.modified = True # Ensure session change is saved
+
+    if errors:
+        return jsonify({"message": f"Deleted {deleted_count} images with errors: {errors}"}), 200 # Still 200 if some deleted
+    return jsonify({"message": f"Successfully deleted {deleted_count} temporary Cloudinary assets."}), 200
 
 
 
