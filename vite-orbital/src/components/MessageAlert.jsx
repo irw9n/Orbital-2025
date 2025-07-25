@@ -1,4 +1,3 @@
-// The code here returns an alert div in the event an error has occured like upload errors, etc.
 
 import React from 'react';
 import {Alert} from 'react-bootstrap';
