@@ -387,13 +387,10 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     if (currentPublicIdsRef.current.modified) publicIdsToClean.push(currentPublicIdsRef.current.modified);
 
     console.log("DEBUG: resetGameState called. Public IDs to clean:", publicIdsToClean);
+    console.log("DEBUG: currentPublicIdsRef.current at start of resetGameState:", currentPublicIdsRef.current);
     console.log("DEBUG: isLoggedIn:", isLoggedIn, "gameEnded:", gameEnded); 
 
-    if (isLoggedIn && gameEnded && publicIdsToClean.length > 0) {
-        // If logged in and game ended, do NOT delete temporary images on restart
-        console.log("Logged-in user finished game and is restarting. Skipping temporary image cleanup.");
-    } 
-    else if (publicIdsToClean.length > 0) {
+    if (publicIdsToClean.length > 0 && !(isLoggedIn && gameEnded)) {
       try {
         if (isLoggedIn) {
           console.log(`Frontend: Cleaning up user ${currentUser?.user_id}'s images on restart:`, publicIdsToClean);
@@ -406,6 +403,10 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         console.error("Error during explicit image cleanup on restart:", error);
       }
     }
+    else if (publicIdsToClean.length > 0 && isLoggedIn && gameEnded) {
+        // If logged in and game ended, do NOT delete temporary images on restart
+        console.log("Logged-in user finished game and is restarting. Skipping temporary image cleanup.");
+    } 
     else {
       console.log("No public IDs to clean up, or no previous game was active.");
     }
