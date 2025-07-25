@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 30.0 LOADED (CLOUDINARY & POLLINATE AI FIXES) ---")
+print("--- APP.PY VERSION 31.0 LOADED (CLOUDINARY FOLDER DELETION) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -683,7 +683,12 @@ def uploaded_file(filename):
     # return send_from_directory(UPLOAD_FOLDER, filename)
     return jsonify({'error': 'Local file serving deprecated. Images served from Cloudinary.'}), 404
 
-
+def extract_folder_from_public_id(public_id):
+    if not public_id:
+        return None
+    if '/' in public_id:
+        return public_id.rsplit('/', 1)[0]
+    return None
 
 # Route for deleting guest images from Cloudinary
 @app.route("/cleanup-guest-files", methods=["POST"])
@@ -702,23 +707,41 @@ def cleanup_guest_files():
 
     public_ids = session.pop("guest_cloudinary_public_ids", [])
     deleted_count = 0
+    folder_paths = set()
+
     for public_id in public_ids:
         try:
             response = cloud_upload.destroy(public_id)
             if response['result'] == 'ok':
                 deleted_count += 1
                 print(f"Deleted Cloudinary asset: {public_id}")
+                folder = extract_folder_from_public_id(public_id)
+                if folder:
+                    folder_paths.add(folder)
             else:
                 print(f"Failed to delete Cloudinary asset {public_id}: {response}")
         except Exception as e:
             print(f"Error deleting Cloudinary asset {public_id}: {e}")
+        
+    deleted_folders_count = 0
+    for folder_path in folder_paths:
+        try:
+            response = cloud_api.delete_folder(folder_path)
+            if response['result'] == 'ok':
+                deleted_folders_count += 1
+                print(f"Deleted Cloudinary folder: {folder_path}")
+            else:
+                print(f"Failed to delete Cloudinary folder {folder_path}: {response}")
+        except Exception as e:
+            print(f"Error deleting Cloudinary folder {folder_path}: {e}")
     
-    return jsonify({"message": f"Cleaned up {deleted_count} guest Cloudinary assets."}), 200
+    return jsonify({"message": f"Cleaned up {deleted_count} guest Cloudinary assets and {deleted_folders_count} folders."}), 200
 
 @app.route("/delete-user-temp-images", methods=["POST"])
 @login_required
 def delete_user_temp_images():
     user_id = session.get('user_id')
+    print(f"[/delete-user-temp-images] User ID from session: {user_id}")
     data = request.json
     public_ids_to_delete = data.get('public_ids', [])
 
@@ -728,12 +751,17 @@ def delete_user_temp_images():
 
     deleted_count = 0
     errors = []
+    folder_paths = set()
+
     for public_id in public_ids_to_delete:
         try:
             response = cloud_upload.destroy(public_id)
             if response['result'] == 'ok':
                 deleted_count += 1
                 print(f"Deleted Cloudinary asset for user {user_id}: {public_id}")
+                folder = extract_folder_from_public_id(public_id)
+                if folder:
+                    folder_paths.add(folder)
             else:
                 print(f"Failed to delete Cloudinary asset {public_id} for user {user_id}: {response}")
                 errors.append(f"Failed to delete {public_id}: {response.get('error', {}).get('message', 'Unknown error')}")
@@ -741,13 +769,27 @@ def delete_user_temp_images():
             print(f"Error deleting Cloudinary asset {public_id} for user {user_id}: {e}")
             errors.append(f"Error deleting {public_id}: {str(e)}")
     
+    deleted_folders_count = 0
+    for folder_path in folder_paths:
+        try:
+            response = cloud_api.delete_folder(folder_path)
+            if response['result'] == 'ok':
+                deleted_folders_count += 1
+                print(f"Deleted Cloudinary folder for user {user_id}: {folder_path}")
+            else:
+                print(f"Failed to delete Cloudinary folder {folder_path} for user {user_id}: {response}")
+        except Exception as e:
+            print(f"Error deleting Cloudinary folder {folder_path} for user {user_id}: {e}")
+    
+
+
     # After attempting deletion, clear the session's temporary image tracking
     session.pop("current_game_temp_files", None)
     session.modified = True # Ensure session change is saved
 
     if errors:
-        return jsonify({"message": f"Deleted {deleted_count} images with errors: {errors}"}), 200 # Still 200 if some deleted
-    return jsonify({"message": f"Successfully deleted {deleted_count} temporary Cloudinary assets."}), 200
+        return jsonify({"message": f"Deleted {deleted_count} images  and {deleted_folders_count} folders with errors: {errors}"}), 200 # Still 200 if some deleted
+    return jsonify({"message": f"Successfully deleted {deleted_count} temporary Cloudinary assets and {deleted_folders_count} folders."}), 200
 
 
 
