@@ -12,3 +12,5 @@ requests
 cloudinary
 gunicorn==21.2.0
 dotenv
+redis
+flask_session
