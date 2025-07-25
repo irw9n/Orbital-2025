@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 27.0 LOADED (SESSION COOKIE DOMAIN ADJUSTMENT) ---")
+print("--- APP.PY VERSION 28.0 LOADED (REDIS SESSION INTEGRATION) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -9,6 +9,8 @@ load_dotenv()
 from flask import Flask, request, jsonify, send_from_directory, session
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
+from flask_session import Session
+
 import os
 import cv2
 import numpy as np
@@ -25,6 +27,8 @@ import cloudinary.api as cloud_api
 from image_processing import apply_changes
 from functools import wraps
 
+import redis
+
 
 
 app = Flask(__name__)
@@ -33,10 +37,23 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 IS_LOCAL_DEV_FLAG = os.getenv('IS_LOCAL_DEV', 'False').lower() == 'true'
 
-app.config['SESSION_COOKIE_SAMESITE'] = "None"
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_USE_SIGNER"] = True
+
+if os.getenv("REDIS_URL"):
+    app.config["SESSION_TYPE"] = "redis"
+    app.config["SESSION_REDIS"] = redis.from_url(os.getenv("REDIS_URL"))
+    print("SESSION_TYPE set to: redis (using REDIS_URL)")
+else:
+    app.config["SESSION_TYPE"] = "filesystem"
+    app.config["SESSION_FILE_DIR"] = os.path.join(os.getcwd(), 'flask_session_data')
+    if not os.path.exists(app.config["SESSION_FILE_DIR"]):
+        os.makedirs(app.config["SESSION_FILE_DIR"])
+    print("SESSION_TYPE set to: filesystem (local fallback)")
 
 app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_SECURE_COOKIE', 'True').lower() == 'true'
-app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_SECURE_COOKIE', 'True').lower() == 'true'
+app.config['SESSION_COOKIE_SAMESITE'] = "None"
+
 app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
 
 print(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
