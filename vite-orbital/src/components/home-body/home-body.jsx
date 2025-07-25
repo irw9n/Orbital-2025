@@ -387,8 +387,13 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     if (currentPublicIdsRef.current.modified) publicIdsToClean.push(currentPublicIdsRef.current.modified);
 
     console.log("DEBUG: resetGameState called. Public IDs to clean:", publicIdsToClean);
+    console.log("DEBUG: isLoggedIn:", isLoggedIn, "gameEnded:", gameEnded); 
 
-    if (publicIdsToClean.length > 0) {
+    if (isLoggedIn && gameEnded && publicIdsToClean.length > 0) {
+        // If logged in and game ended, do NOT delete temporary images on restart
+        console.log("Logged-in user finished game and is restarting. Skipping temporary image cleanup.");
+    } 
+    else if (publicIdsToClean.length > 0) {
       try {
         if (isLoggedIn) {
           console.log(`Frontend: Cleaning up user ${currentUser?.user_id}'s images on restart:`, publicIdsToClean);
@@ -400,6 +405,9 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       } catch (error) {
         console.error("Error during explicit image cleanup on restart:", error);
       }
+    }
+    else {
+      console.log("No public IDs to clean up, or no previous game was active.");
     }
 
     setSelectedFile(null);
@@ -493,7 +501,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     // setLocalOriginalImagePath("");
     // setLocalModifiedImagePath("");
     setOriginalImageCloudinaryUrl(""); // Clear Cloudinary URLs
-    setModifiedImageCloudinaryUrl(""); // Clear Cloudinary URLs
+    setModifiedImageCloudinaryUrl(""); // Clear Cloudinary URLs
     // setOriginalImagePublicId(""); // Clear public IDs
     // setModifiedImagePublicId(""); // Clear public IDs
     setDifferences([]);
