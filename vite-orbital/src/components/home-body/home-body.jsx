@@ -36,6 +36,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const [originalImagePublicId, setOriginalImagePublicId] = useState("");
   const [modifiedImagePublicId, setModifiedImagePublicId] = useState("");
 
+  const currentPublicIdsRef = useRef({ original: "", modified: "" });
+
   const [differences, setDifferences] = useState([]);
   const [foundDifferences, setFoundDifferences] = useState(new Set());
   const [clickAttempts, setClickAttempts] = useState([]);
@@ -367,13 +369,22 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       return () => clearTimeout(timer);
     }
   }, [clickAttempts, drawCircles]);
-  
+
+  useEffect(() => {
+    console.log("STATE CHANGE - originalImagePublicId:", originalImagePublicId);
+  }, [originalImagePublicId]);
+
+  useEffect(() => {
+    console.log("STATE CHANGE - modifiedImagePublicId:", modifiedImagePublicId);
+  }, [modifiedImagePublicId]);
 
   // Completely clear the board
   const resetGameState = async () => {
     const publicIdsToClean = [];
-    if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
-    if (modifiedImagePublicId) publicIdsToClean.push(modifiedImagePublicId);
+    // if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
+    // if (modifiedImagePublicId) publicIdsToClean.push(modifiedImagePublicId);
+    if (currentPublicIdsRef.current.original) publicIdsToClean.push(currentPublicIdsRef.current.original);
+    if (currentPublicIdsRef.current.modified) publicIdsToClean.push(currentPublicIdsRef.current.modified);
 
     console.log("DEBUG: resetGameState called. Public IDs to clean:", publicIdsToClean);
 
@@ -400,6 +411,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     setModifiedImageCloudinaryUrl("");
     setOriginalImagePublicId(""); // Clear public IDs from state AFTER cleanup
     setModifiedImagePublicId("");
+    currentPublicIdsRef.current = { original: "", modified: "" }; 
     setPollinateImage(""); // clear AI preview
     setDifferences([]);
     setFoundDifferences(new Set());
@@ -536,7 +548,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         originalImageUrl: backendOriginalUrl,
         modifiedImageUrl,
         original_image_cloudinary_url, // Now expecting Cloudinary URLs
-        modified_image_cloudinary_url, // Now expecting Cloudinary URLs
+        modified_image_cloudinary_url, // Now expecting Cloudinary URLs
         original_public_id, // New: Public ID from backend
         modified_public_id, // New: Public ID from backend
         // originalImageLocalPath,
@@ -567,6 +579,9 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       setModifiedImageCloudinaryUrl(modified_image_cloudinary_url);
       setOriginalImagePublicId(original_public_id); // Store public ID
       setModifiedImagePublicId(modified_public_id); // Store public ID
+      currentPublicIdsRef.current = { original: original_public_id, modified: modified_public_id };
+
+      console.log("DEBUG: Public IDs set after upload. State:", { originalImagePublicId, modifiedImagePublicId }, "Ref:", currentPublicIdsRef.current);
 
       // setLocalOriginalImagePath(originalImageLocalPath);
       // setLocalModifiedImagePath(modifiedImageLocalPath);
@@ -603,6 +618,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       setModifiedImageCloudinaryUrl("");
       setOriginalImagePublicId("");
       setModifiedImagePublicId("");
+      currentPublicIdsRef.current = { original: "", modified: "" };
     } finally {
       setLoading(false);
     }
@@ -727,8 +743,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
 
         const finalScoreOnLoss = foundDifferences.size;
         const totalDifferences = differences.length;
-        const currentOriginalUrl = originalImageCloudinaryUrl;  
-        const currentModifiedUrl = modifiedImageCloudinaryUrl;
+        const currentOriginalUrl = originalImageCloudinaryUrl;  
+        const currentModifiedUrl = modifiedImageCloudinaryUrl;
 
         setFoundDifferences(new Set(differences.map((d) => d.id))); // Reveal all differences
 
