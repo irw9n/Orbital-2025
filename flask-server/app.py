@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 28.0 LOADED (REDIS SESSION INTEGRATION) ---")
+print("--- APP.PY VERSION 29.0 LOADED (FIX SAVE-GAME SECURITY CHECK) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -62,7 +62,7 @@ print(f"IS_LOCAL_DEV_FLAG (for reference): {IS_LOCAL_DEV_FLAG}")
 
 # app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
-
+Session(app)
 
 
 # Allows Flask as a backend to be accessed from React which is ran on another domain
@@ -272,8 +272,6 @@ def update_stats():
 def save_game():
     data = request.json
     user_id = session.get('user_id')
-    print(f"[/save-game] User ID from session: {user_id}")
-    print(f"[/save-game] Full session at start of save-game: {session}")
 
     print(f"[/save-game] User ID from session: {user_id}")
     print(f"[/save-game] Full session: {session}") # NEW: Print entire session
@@ -330,16 +328,25 @@ def save_game():
     # if not all([user_id, original_path, modified_path, score, total, time_taken]):
     #     return jsonify({'error': 'Missing fields'}), 400
 
+    session_original_public_id = session_temp_files.get('original_public_id') if session_temp_files else None
+    session_modified_public_id = session_temp_files.get('modified_public_id') if session_temp_files else None
+
     # Check for session mismatch with Cloudinary public IDs
-    if not session_temp_files:
-        print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
-        return jsonify({'error': 'Invalid image URLs provided. Session data missing.'}), 400
-    elif session_temp_files.get('original_public_id') != original_image_cloudinary_url or \
-         session_temp_files.get('modified_public_id') != modified_image_cloudinary_url:
-        print(f"SECURITY ALERT: Mismatch in Cloudinary URLs for user {user_id}.")
-        print(f"Session data: Original Public ID={session_temp_files.get('original_public_id')}, Modified Public ID={session_temp_files.get('modified_public_id')}")
+    if session_original_public_id != request_original_public_id or \
+       session_modified_public_id != request_modified_public_id:
+        print(f"SECURITY ALERT: Mismatch in Cloudinary Public IDs for user {user_id}.")
+        print(f"Session data: Original Public ID={session_original_public_id}, Modified Public ID={session_modified_public_id}")
         print(f"Request data: Original Public ID={request_original_public_id}, Modified Public ID={request_modified_public_id}")
         return jsonify({'error': 'Invalid image URLs provided. Session mismatch.'}), 400
+    # if not session_temp_files:
+    #     print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}.")
+    #     return jsonify({'error': 'Invalid image URLs provided. Session data missing.'}), 400
+    # elif session_temp_files.get('original_public_id') != original_image_cloudinary_url or \
+    #      session_temp_files.get('modified_public_id') != modified_image_cloudinary_url:
+    #     print(f"SECURITY ALERT: Mismatch in Cloudinary URLs for user {user_id}.")
+    #     print(f"Session data: Original Public ID={session_temp_files.get('original_public_id')}, Modified Public ID={session_temp_files.get('modified_public_id')}")
+    #     print(f"Request data: Original Public ID={request_original_public_id}, Modified Public ID={request_modified_public_id}")
+    #     return jsonify({'error': 'Invalid image URLs provided. Session mismatch.'}), 400
     
 
 
