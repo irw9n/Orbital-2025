@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 29.0 LOADED (FIX SAVE-GAME SECURITY CHECK) ---")
+print("--- APP.PY VERSION 30.0 LOADED (CLOUDINARY & POLLINATE AI FIXES) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -20,6 +20,7 @@ import urllib.parse, requests, tempfile
 from datetime import datetime, timezone, timedelta
 # for securing user password
 from werkzeug.security import generate_password_hash, check_password_hash 
+
 # import libraries to initialize cloudinary for image storage
 import cloudinary
 import cloudinary.uploader as cloud_upload
@@ -703,7 +704,7 @@ def cleanup_guest_files():
     deleted_count = 0
     for public_id in public_ids:
         try:
-            response = cloud_api.destroy(public_id)
+            response = cloud_upload.destroy(public_id)
             if response['result'] == 'ok':
                 deleted_count += 1
                 print(f"Deleted Cloudinary asset: {public_id}")
@@ -729,7 +730,7 @@ def delete_user_temp_images():
     errors = []
     for public_id in public_ids_to_delete:
         try:
-            response = cloud_api.destroy(public_id)
+            response = cloud_upload.destroy(public_id)
             if response['result'] == 'ok':
                 deleted_count += 1
                 print(f"Deleted Cloudinary asset for user {user_id}: {public_id}")
@@ -768,7 +769,7 @@ def generate_ai_image():
         params={
             "width": 640,
             "height": 640,
-            "model": "gptimage"
+            # "model": "gptimage"
         },
         timeout=300
     )
