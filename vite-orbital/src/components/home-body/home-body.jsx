@@ -94,7 +94,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   };
 
   // Function to send POST request to start deleting guest files (now Cloudnary assets)
-  const cleanupGuestImages = async () => {
+  const cleanupGuestImages = async (publicIds = []) => {
     // try {
     //   await axios.post(
     //     `${BACKEND_URL}/cleanup-guest-files`,
@@ -108,7 +108,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     try {
       await axios.post(
         `${BACKEND_URL}/cleanup-guest-files`,
-        {},
+        { public_ids: publicIds },
         { withCredentials: true }
       );
       console.log("Temporary guest Cloudinary assets cleaned up.");
@@ -375,6 +375,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
     if (modifiedImagePublicId) publicIdsToClean.push(modifiedImagePublicId);
 
+    console.log("DEBUG: resetGameState called. Public IDs to clean:", publicIdsToClean);
+
     if (publicIdsToClean.length > 0) {
       try {
         if (isLoggedIn) {
@@ -394,10 +396,10 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     setModifiedImageUrl("");
     // setLocalOriginalImagePath("");
     // setLocalModifiedImagePath("");
-    setOriginalImagePublicId("");
-    setModifiedImagePublicId("");
     setOriginalImageCloudinaryUrl("");
     setModifiedImageCloudinaryUrl("");
+    setOriginalImagePublicId(""); // Clear public IDs from state AFTER cleanup
+    setModifiedImagePublicId("");
     setPollinateImage(""); // clear AI preview
     setDifferences([]);
     setFoundDifferences(new Set());
@@ -468,11 +470,11 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     const file = event.target.files[0];
     setSelectedFile(file);
 
-    // If a previous game was in progress and user is logged in, clean up old Cloudinary images
-    // This handles uploading a new image before finishing the previous one
-    if (isLoggedIn && originalImagePublicId && modifiedImagePublicId) {
-      await deleteUserTempImages([originalImagePublicId, modifiedImagePublicId]);
-    }
+    // // If a previous game was in progress and user is logged in, clean up old Cloudinary images
+    // // This handles uploading a new image before finishing the previous one
+    // if (isLoggedIn && originalImagePublicId && modifiedImagePublicId) {
+    //   await deleteUserTempImages([originalImagePublicId, modifiedImagePublicId]);
+    // }
 
     // Reset game state when a new file is selected
     setModifiedImageUrl("");
@@ -480,8 +482,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     // setLocalModifiedImagePath("");
     setOriginalImageCloudinaryUrl(""); // Clear Cloudinary URLs
     setModifiedImageCloudinaryUrl(""); // Clear Cloudinary URLs
-    setOriginalImagePublicId(""); // Clear public IDs
-    setModifiedImagePublicId(""); // Clear public IDs
+    // setOriginalImagePublicId(""); // Clear public IDs
+    // setModifiedImagePublicId(""); // Clear public IDs
     setDifferences([]);
     setFoundDifferences(new Set());
     setClickAttempts([]);
@@ -552,7 +554,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       console.log("Frontend received modified_public_id (for cleanup):", modified_public_id);
 
       // Revoke the temporary blob URL for the original image if it exists
-      if (originalImageUrl.startsWith("blob:")) {
+      if (originalImageUrl && originalImageUrl.startsWith("blob:")) {
         URL.revokeObjectURL(originalImageUrl);
       }
 
@@ -594,6 +596,13 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       }
       setGameStarted(false);
       setGameEnded(true);
+      // Clear image states on error
+      setOriginalImageUrl("");
+      setModifiedImageUrl("");
+      setOriginalImageCloudinaryUrl("");
+      setModifiedImageCloudinaryUrl("");
+      setOriginalImagePublicId("");
+      setModifiedImagePublicId("");
     } finally {
       setLoading(false);
     }
@@ -675,7 +684,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
                     saveGameDataAndImages(currentScore, totalDifferences, currentOriginalUrl, currentModifiedUrl);
                     onUpdateUserStats(currentScore, true);
                 } else {
-                    cleanupGuestImages();
+                    // cleanupGuestImages(); // For guest users, cleanup is handled by the proactive cleanup on new upload
+                    // or by explicit restart. No need for cleanup here if game completed.
                 }
           }, 50);
         }
@@ -728,7 +738,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
             saveGameDataAndImages(finalScoreOnLoss, totalDifferences, currentOriginalUrl, currentModifiedUrl);
             onUpdateUserStats(finalScoreOnLoss, false);
           } else {
-            cleanupGuestImages();
+            // cleanupGuestImages(); // For guest users, cleanup is handled by the proactive cleanup on new upload
+            // or by explicit restart. No need for cleanup here if game completed.
           }// Update stats for loss, found diffs only
         }, 50); // Trigger redraw to show all highlights immediately
       }
@@ -767,6 +778,7 @@ const handleTestSession = async () => {
         onClose={() => setShowPollinateModal(false)}
         backendUrl={BACKEND_URL}
         onImageReady={async (url) => {
+          await resetGameState();
           setPollinateImage(url);
           const res = await fetch(url);
           const blob = await res.blob();
@@ -775,6 +787,7 @@ const handleTestSession = async () => {
           });
           setSelectedFile(file);
           setOriginalImageUrl(url);
+          await handleUpload();
         }}
       />
 
