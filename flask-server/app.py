@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 26.0 LOADED (SIMPLIFIED SESSION_COOKIE_SECURE ---")
+print("--- APP.PY VERSION 27.0 LOADED (SESSION COOKIE DOMAIN ADJUSTMENT) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -30,11 +30,15 @@ from functools import wraps
 app = Flask(__name__)
 # initialize secret key for session management and CSRF protection
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
+
 IS_LOCAL_DEV_FLAG = os.getenv('IS_LOCAL_DEV', 'False').lower() == 'true'
+
 app.config['SESSION_COOKIE_SAMESITE'] = "None"
-FLASK_SESSION_SECURE_COOKIE = os.getenv('FLASK_SESSION_SECURE_COOKIE', 'True').lower() == 'true'
-app.config['SESSION_COOKIE_SECURE'] = FLASK_SESSION_SECURE_COOKIE
+
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_SECURE_COOKIE', 'True').lower() == 'true'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_SESSION_SECURE_COOKIE', 'True').lower() == 'true'
 app.config['SESSION_COOKIE_DOMAIN'] = os.getenv('SESSION_COOKIE_DOMAIN', None) 
+
 print(f"SESSION_COOKIE_DOMAIN set to: {app.config['SESSION_COOKIE_DOMAIN']}")
 print(f"SESSION_COOKIE_SECURE set to: {app.config['SESSION_COOKIE_SECURE']} (from FLASK_SESSION_SECURE_COOKIE env var)")
 print(f"IS_LOCAL_DEV_FLAG (for reference): {IS_LOCAL_DEV_FLAG}")
