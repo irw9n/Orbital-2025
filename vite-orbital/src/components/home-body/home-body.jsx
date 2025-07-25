@@ -370,12 +370,32 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   
 
   // Completely clear the board
-  const resetGameState = () => {
+  const resetGameState = async () => {
+    const publicIdsToClean = [];
+    if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
+    if (modifiedImagePublicId) publicIdsToClean.push(modifiedImagePublicId);
+
+    if (publicIdsToClean.length > 0) {
+      try {
+        if (isLoggedIn) {
+          console.log(`Frontend: Cleaning up user ${currentUser?.user_id}'s images on restart:`, publicIdsToClean);
+          await deleteUserTempImages(publicIdsToClean);
+        } else {
+          console.log(`Frontend: Cleaning up guest images on restart:`, publicIdsToClean);
+          await cleanupGuestImages(publicIdsToClean);
+        }
+      } catch (error) {
+        console.error("Error during explicit image cleanup on restart:", error);
+      }
+    }
+
     setSelectedFile(null);
     setOriginalImageUrl("");
     setModifiedImageUrl("");
     // setLocalOriginalImagePath("");
     // setLocalModifiedImagePath("");
+    setOriginalImagePublicId("");
+    setModifiedImagePublicId("");
     setOriginalImageCloudinaryUrl("");
     setModifiedImageCloudinaryUrl("");
     setPollinateImage(""); // clear AI preview
@@ -392,6 +412,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       if (ctx)
         ctx.clearRect(0, 0, canvasRef.current.width,canvasRef.current.height);
     }
+    console.log("Game state reset.");
   };
 
   // // Callback for successful login from LoginRegisterTabs
