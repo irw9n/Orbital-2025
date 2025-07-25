@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 33.0 LOADED (ROBUST CLOUDINARY FOLDER DELETION) ---")
+print("--- APP.PY VERSION 35.0 LOADED (FINAL CLOUDINARY FOLDER DELETION RESPONSE FIX) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -193,7 +193,7 @@ def delete_cloudinary_assets_and_folders(public_ids_list, user_identifier="unkno
         try:
             folder_response = cloud_api.delete_folder(folder_path)
             print(f"DEBUG: Cloudinary delete_folder response for {folder_path}: {folder_response}")
-            if folder_response.get('message') == 'ok':
+            if 'deleted' in folder_response and folder_path in folder_response['deleted']:
                 deleted_folders_count += 1
                 print(f"Deleted Cloudinary folder for {user_identifier}: {folder_path}")
             elif 'error' in folder_response:

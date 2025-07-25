@@ -370,27 +370,44 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     }
   }, [clickAttempts, drawCircles]);
 
-  useEffect(() => {
-    console.log("STATE CHANGE - originalImagePublicId:", originalImagePublicId);
-  }, [originalImagePublicId]);
+  // useEffect(() => {
+  //   console.log("STATE CHANGE - originalImagePublicId:", originalImagePublicId);
+  // }, [originalImagePublicId]);
+
+  // useEffect(() => {
+  //   console.log("STATE CHANGE - modifiedImagePublicId:", modifiedImagePublicId);
+  // }, [modifiedImagePublicId]);
 
   useEffect(() => {
-    console.log("STATE CHANGE - modifiedImagePublicId:", modifiedImagePublicId);
-  }, [modifiedImagePublicId]);
+    currentPublicIdsRef.current = { 
+      original: originalImagePublicId, 
+      modified: modifiedImagePublicId 
+    };
+    console.log("DEBUG: currentPublicIdsRef updated by useEffect:", currentPublicIdsRef.current);
+  }, [originalImagePublicId, modifiedImagePublicId]);
 
   // Completely clear the board
   const resetGameState = async () => {
+    console.log("DEBUG: resetGameState called."); 
+    console.log("DEBUG: currentPublicIdsRef.current at start of resetGameState:", currentPublicIdsRef.current); // Crucial debug log
+    console.log("DEBUG: isLoggedIn:", isLoggedIn, "gameEnded:", gameEnded); // Added debug for conditions
+
     const publicIdsToClean = [];
     // if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
     // if (modifiedImagePublicId) publicIdsToClean.push(modifiedImagePublicId);
     if (currentPublicIdsRef.current.original) publicIdsToClean.push(currentPublicIdsRef.current.original);
     if (currentPublicIdsRef.current.modified) publicIdsToClean.push(currentPublicIdsRef.current.modified);
 
-    console.log("DEBUG: resetGameState called. Public IDs to clean:", publicIdsToClean);
-    console.log("DEBUG: currentPublicIdsRef.current at start of resetGameState:", currentPublicIdsRef.current);
-    console.log("DEBUG: isLoggedIn:", isLoggedIn, "gameEnded:", gameEnded); 
+    console.log("DEBUG: publicIdsToClean array:", publicIdsToClean);
 
-    if (publicIdsToClean.length > 0 && !(isLoggedIn && gameEnded)) {
+    // CONDITIONAL CLEANUP LOGIC
+    // Delete if:
+    // 1. It's a guest user (isLoggedIn is false)
+    // 2. It's a logged-in user AND the game HAS NOT ENDED (i.e., mid-game restart)
+    // 3. There are actually public IDs to clean.
+    const shouldDelete = publicIdsToClean.length > 0 && (!isLoggedIn || !gameEnded);
+    
+    if (shouldDelete) {
       try {
         if (isLoggedIn) {
           console.log(`Frontend: Cleaning up user ${currentUser?.user_id}'s images on restart:`, publicIdsToClean);
@@ -435,8 +452,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       if (ctx)
         ctx.clearRect(0, 0, canvasRef.current.width,canvasRef.current.height);
     }
-    console.log("Game state reset.");
-  };
+    console.log("Game state reset complete.");
+  }; 
 
   // // Callback for successful login from LoginRegisterTabs
   // const handleLoginSuccess = (userData) => {
