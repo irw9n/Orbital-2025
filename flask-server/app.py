@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 32.0 LOADED (PROACTIVE TEMP IMAGE CLEANUP) ---")
+print("--- APP.PY VERSION 33.0 LOADED (ROBUST CLOUDINARY FOLDER DELETION) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -191,14 +191,20 @@ def delete_cloudinary_assets_and_folders(public_ids_list, user_identifier="unkno
 
     for folder_path in folder_paths_to_delete:
         try:
-            response = cloud_api.delete_folder(folder_path)
-            if response['result'] == 'ok':
+            folder_response = cloud_api.delete_folder(folder_path)
+            print(f"DEBUG: Cloudinary delete_folder response for {folder_path}: {folder_response}")
+            if folder_response.get('message') == 'ok':
                 deleted_folders_count += 1
                 print(f"Deleted Cloudinary folder for {user_identifier}: {folder_path}")
+            elif 'error' in folder_response:
+                print(f"Failed to delete Cloudinary folder {folder_path} for {user_identifier}: {folder_response.get('error', 'Unknown error')}")
+                errors.append(f"Failed to delete folder {folder_path}: {folder_response.get('error', 'Unknown error')}")
             else:
-                    print(f"Failed to delete Cloudinary folder {folder_path} for {user_identifier}: {response}")
+                print(f"Unexpected Cloudinary delete_folder response for {folder_path}: {folder_response}")
+                errors.append(f"Unexpected response for folder {folder_path}: {folder_response}")
         except Exception as e:
             print(f"Error deleting Cloudinary folder {folder_path} for {user_identifier}: {e}")
+            errors.append(f"Error deleting folder {folder_path}: {str(e)}")
     
     return deleted_assets_count, deleted_folders_count, errors
 
@@ -241,6 +247,7 @@ def login_user():
     if user and user.check_password(password):
         # set session
         session["user_id"] = user.id
+        session.modified = True
         return jsonify({'message': 'Login successful', 
                         'user_id': user.id,
                         'username': user.username,
@@ -256,6 +263,7 @@ def login_user():
 def logout():
     session.pop("user_id", None)
     session.pop("current_game_temp_files", None)
+    session.modified = True
     return jsonify({"Message": "Logged Out"}), 200
 
 # rendering user stats
@@ -368,7 +376,10 @@ def save_game():
     session_modified_public_id = session_temp_files.get('modified_public_id') if session_temp_files else None
 
     # Check for session mismatch with Cloudinary public IDs
-    if session_original_public_id != request_original_public_id or \
+    if not session_temp_files:
+        print(f"SECURITY ALERT: session_temp_files is None or empty for user {user_id}. Cannot verify image origin.")
+        return jsonify({'error': 'Invalid image URLs provided. Session data missing.'}), 400
+    elif session_original_public_id != request_original_public_id or \
        session_modified_public_id != request_modified_public_id:
         print(f"SECURITY ALERT: Mismatch in Cloudinary Public IDs for user {user_id}.")
         print(f"Session data: Original Public ID={session_original_public_id}, Modified Public ID={session_modified_public_id}")
@@ -765,9 +776,16 @@ def cleanup_guest_files():
     
 #     return jsonify({"message": "Guest files Cleaned", 'deleted': deleted})
 
-    public_ids = session.pop("guest_cloudinary_public_ids", [])
-    if public_ids:
-        deleted_assets, deleted_folders, errors = delete_cloudinary_assets_and_folders(public_ids, "guest (explicit)")
+    # public_ids = session.pop("guest_cloudinary_public_ids", [])
+
+    # Public IDs can come from session (if not explicitly sent by frontend) or request body
+    public_ids_from_request = request.json.get('public_ids', [])
+    public_ids_from_session = session.pop("guest_cloudinary_public_ids", [])
+
+    public_ids_to_delete = list(set(public_ids_from_request + public_ids_from_session))
+
+    if public_ids_to_delete:
+        deleted_assets, deleted_folders, errors = delete_cloudinary_assets_and_folders(public_ids_to_delete, "guest (explicit)")
         if errors:
             return jsonify({"message": f"Cleaned up {deleted_assets} guest Cloudinary assets and {deleted_folders} folders with errors: {errors}"}), 200
         return jsonify({"message": f"Successfully cleaned up {deleted_assets} guest Cloudinary assets and {deleted_folders} folders."}), 200
@@ -809,8 +827,18 @@ def cleanup_guest_files():
 def delete_user_temp_images():
     user_id = session.get('user_id')
     print(f"[/delete-user-temp-images] User ID from session: {user_id}")
-    data = request.json
-    public_ids_to_delete = data.get('public_ids', [])
+
+     # Public IDs can come from session (if not explicitly sent by frontend) or request body
+    public_ids_from_request = request.json.get('public_ids', [])
+    previous_temp_files_from_session = session.pop("current_game_temp_files", None)
+
+    public_ids_from_session = []
+    if previous_temp_files_from_session:
+        public_ids_from_session.append(previous_temp_files_from_session.get('original_public_id'))
+        public_ids_from_session.append(previous_temp_files_from_session.get('modified_public_id'))
+    public_ids_from_session = [pid for pid in public_ids_from_session if pid] # Filter out None
+
+    public_ids_to_delete = list(set(public_ids_from_request + public_ids_from_session))
 
     if not public_ids_to_delete:
         print(f"[/delete-user-temp-images] No public IDs provided for user {user_id}.")
