@@ -979,7 +979,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
             {/* Game Mode Selection Panel */}
             <Row className="mb-3 justify-content-center">
                 <Col md={8}>
-                    <Card className="game-mode-panel p-3 shadow-sm rounded-3">
+                    <Card className="game-mode-panel p-0 shadow-sm rounded-3">
                         <Card.Body className="d-flex justify-content-center align-items-center flex-wrap">
                             <h5 className="mb-0 me-3">Game Mode:</h5>
                             <Button 
