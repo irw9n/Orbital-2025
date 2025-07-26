@@ -95,10 +95,16 @@ function GameHistory({ currentUser, onBackToGame }) {
 
   return (
     <Container className="my-5 game-history-container">
-      <h2 className="text-center mb-4">Game History for {historyData.username}</h2>
-      <Button variant="primary" onClick={onBackToGame}>
-          Back to Game
-        </Button>
+    <Row className="align-items-center mb-4">
+        <Col xs={12} md={8}>
+            <h2 className="text-center mb-4">Game History for {historyData.username}</h2>
+        </Col>
+        <Col xs={12} md={4} className="text-md-end mt-3 mt-md-0">
+            <Button variant="primary" onClick={onBackToGame}>
+                Back to Game
+            </Button>
+        </Col>
+    </Row>
       <Table striped bordered hover responsive className="game-history-table">
         <thead>
           <tr>
