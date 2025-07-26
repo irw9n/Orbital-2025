@@ -6,7 +6,7 @@ function HowToPlayModal({ show, onClose }) {
   return (
     <Modal show={show} onHide={onClose} centered size="lg">
       <Modal.Header closeButton>
-        <Modal.Title>How To Play Spot The Difference</Modal.Title>
+        <Modal.Title>How To Play</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <h5>Welcome to Spot The Difference!</h5>
@@ -14,8 +14,8 @@ function HowToPlayModal({ show, onClose }) {
 
         <h6>Game Modes:</h6>
         <ul>
-          <li><strong>Classic Mode:</strong> Take your time! You have a limited number of wrong clicks (7 tries). The game ends when you find all differences or exceed the wrong click limit.</li>
-          <li><strong>Time Attack Mode:</strong> Challenge yourself against the clock! You have a set time limit (e.g., 60 seconds) to find all the differences. The game ends when you find all differences, run out of wrong clicks, or time expires, whichever comes first.</li>
+          <li><strong>Classic:</strong> Take your time! You have a limited number of wrong clicks (7 tries). The game ends when you find all differences or exceed the wrong click limit.</li>
+          <li><strong>Time Attack:</strong> Challenge yourself against the clock! You have a set time limit (e.g., 30 seconds) to find all the differences. The game ends when you find all differences, run out of wrong clicks, or time expires, whichever comes first.</li>
         </ul>
 
         <h6>How to Play:</h6>

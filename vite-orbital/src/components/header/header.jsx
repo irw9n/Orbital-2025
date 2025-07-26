@@ -14,7 +14,7 @@ const Header = ({ isLoggedIn, currentUser, onLoginClick, onRegisterClick, onLogo
       <>
         <Navbar expand="lg" className="bg-body-tertiary">
           <Container>
-            <Navbar.Brand href="#home">spotthedifference</Navbar.Brand>
+            <Navbar.Brand as={Link} to="/">spotthedifference</Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav">
               <Nav className="ms-auto">
