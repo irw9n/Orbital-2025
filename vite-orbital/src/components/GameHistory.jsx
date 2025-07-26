@@ -95,11 +95,11 @@ function GameHistory({ currentUser, onBackToGame }) {
 
   return (
     <Container className="my-5 game-history-container">
-    <Row className="align-items-center mb-4">
-        <Col xs={12} md={8}>
+    <Row className="d-flex align-items-center mb-4">
+        <Col className="d-flex justify-content-center flex-grow-1">
             <h2 className="text-center mb-4">Game History for {historyData.username}</h2>
         </Col>
-        <Col xs={12} md={4} className="text-md-end mt-3 mt-md-0">
+        <Col xs="auto" className="ms-auto">
             <Button variant="primary" onClick={onBackToGame}>
                 Back to Game
             </Button>
