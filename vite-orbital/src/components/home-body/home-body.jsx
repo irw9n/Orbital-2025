@@ -9,6 +9,7 @@ import {
   Card,
   Spinner,
   Alert,
+  Badge
 } from "react-bootstrap";
 import MessageAlert from "../MessageAlert";
 import LeftUploadCard from "../LeftUploadCards";
