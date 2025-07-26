@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Container, Table, Spinner, Alert, Button } from "react-bootstrap";
+import { Container, Table, Spinner, Alert, Button, Row, Col} from "react-bootstrap";
 import ImagePreviewModal from "./ImagePreviewModal";
 import "./GameHistory.css"; 
 
