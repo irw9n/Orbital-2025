@@ -24,6 +24,8 @@ const BACKEND_URL = "https://orbital-2025-backend.onrender.com"; // Connecting t
 
 // const BACKEND_URL = "http://localhost:5000"; // Connecting to Flask backend
 
+const TIME_LIMIT_SECONDS = 30;
+
 function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [originalImageUrl, setOriginalImageUrl] = useState("");
@@ -49,6 +51,12 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const [gameEnded, setGameEnded] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showGameHistory, setShowGameHistory] = useState(false);
+
+  const [gameMode, setGameMode] = useState('classic');
+
+  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT_SECONDS);
+  const timerIntervalRef = useRef(null);
+  const gameStartTimeRef = useRef(null);
 
   // // Authentication states
   // const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -135,7 +143,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   };
 
   // Function to save game data and images (now Cloudinary URLs)
-  const saveGameDataAndImages = async (scoreValue, totalValue, originalUrl, modifiedUrl) => { 
+  const saveGameDataAndImages = async (scoreValue, totalValue, originalUrl, modifiedUrl, timeTaken = 0) => { 
     if (!isLoggedIn || !currentUser?.user_id) {
       console.warn("Attempted to save game data without being logged in.");
       return;
@@ -151,7 +159,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         modified_image_cloudinary_url: modifiedUrl,
         score: scoreValue,
         total: totalValue,
-        time_taken: 0,
+        time_taken: timeTaken,
     });
 
     try {
@@ -160,7 +168,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         modified_image_cloudinary_url: modifiedUrl, 
         score: scoreValue, 
         total: totalValue, 
-        time_taken: 0,
+        time_taken: timeTaken,
       }, { withCredentials: true });
 
       setMessage(response.data.message);
@@ -388,11 +396,67 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     console.log("DEBUG: currentPublicIdsRef updated by useEffect:", currentPublicIdsRef.current);
   }, [originalImagePublicId, modifiedImagePublicId]);
 
+  useEffect(() => {
+    if (gameStarted && gameMode === 'timeAttack') {
+      timerIntervalRef.current = setInterval(() => {
+        setTimeLeft((prevTime) => {
+          if (prevTime <= 1) { // Use <= 1 to ensure it hits 0 and then stops
+            clearInterval(timerIntervalRef.current);
+            endGameDueToTime(); // End game when time runs out
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+    }
+
+    // Cleanup function for the interval
+    return () => {
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+    };
+  }, [gameStarted, gameMode]);
+
+  const endGameDueToTime = useCallback(() => {
+    console.log("Time ran out! Ending game.");
+    setGameStarted(false);
+    setGameEnded(true);
+    setMessage(`Time's up! You found ${foundDifferences.size} out of ${differences.length} differences. The differences are now revealed.`);
+    setFoundDifferences(new Set(differences.map((d) => d.id))); // Reveal all differences
+
+    let finalTimeTaken = 0;
+    if (gameStartTimeRef.current) {
+        finalTimeTaken = (Date.now() - gameStartTimeRef.current) / 1000;
+    }
+    
+    // Save game data for Time Attack mode
+    if (isLoggedIn) {
+        saveGameDataAndImages(
+            foundDifferences.size, 
+            differences.length, 
+            originalImageCloudinaryUrl, 
+            modifiedImageCloudinaryUrl, 
+            finalTimeTaken
+        );
+        onUpdateUserStats(foundDifferences.size, false); // Game not won by finding all diffs, but by time out
+    }
+  }, [foundDifferences, differences, originalImageCloudinaryUrl, modifiedImageCloudinaryUrl, isLoggedIn]);
+
   // Completely clear the board
   const resetGameState = async () => {
     console.log("DEBUG: resetGameState called."); 
     console.log("DEBUG: currentPublicIdsRef.current at start of resetGameState:", currentPublicIdsRef.current); // Crucial debug log
     console.log("DEBUG: isLoggedIn:", isLoggedIn, "gameEnded:", gameEnded); // Added debug for conditions
+
+    // Stop any active timer
+    if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+    }
+    setTimeLeft(TIME_LIMIT_SECONDS); // Reset timer display
+    gameStartTimeRef.current = null; // Reset game start time
 
     const publicIdsToClean = [];
     // if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
@@ -628,6 +692,14 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       setMessage("Images loaded! Find the differences.");
       setClickAttempts([]); // Reset click attempts for new game
       setFoundDifferences(new Set()); // Reset found differences for new game
+
+      //start timer if game mode is Time Attack
+      if (gameMode === 'timeAttack') {
+          console.log("Starting Time Attack timer!");
+          setTimeLeft(TIME_LIMIT_SECONDS);
+          gameStartTimeRef.current = Date.now();
+      }
+
     } catch (err) {
       console.error("Error uploading or processing image:", err);
       if (err.response && err.response.data && err.response.data.error) {
@@ -657,7 +729,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     if (
       !gameStarted ||
       foundDifferences.size === differences.length ||
-      clickAttempts.filter((a) => a.type === "wrong").length >= MAX_WRONG_CLICKS
+      clickAttempts.filter((a) => a.type === "wrong").length >= MAX_WRONG_CLICKS ||
+      (gameMode === 'timeAttack' && timeLeft <= 0)
     ) {
       // Don't allow clicks if game not started, finished, or too many wrong clicks
       return;
@@ -722,10 +795,21 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
           setGameStarted(false); // End game
           setGameEnded(true);
 
+          // Stop timer if active
+          if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+          }
+
+          let finalTimeTaken = 0;
+          if (gameMode === 'timeAttack' && gameStartTimeRef.current) {
+              finalTimeTaken = (Date.now() - gameStartTimeRef.current) / 1000;
+          }
+
           setTimeout(() => {
             // drawCircles(),
             if (isLoggedIn) {
-                    saveGameDataAndImages(currentScore, totalDifferences, currentOriginalUrl, currentModifiedUrl);
+                    saveGameDataAndImages(currentScore, totalDifferences, currentOriginalUrl, currentModifiedUrl, finalTimeTaken);
                     onUpdateUserStats(currentScore, true);
                 } else {
                     // cleanupGuestImages(); // For guest users, cleanup is handled by the proactive cleanup on new upload
@@ -769,10 +853,21 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         setGameStarted(false); // End game
         setGameEnded(true);
 
+        // Stop timer if active
+        if (timerIntervalRef.current) {
+            clearInterval(timerIntervalRef.current);
+            timerIntervalRef.current = null;
+        }
+
         const finalScoreOnLoss = foundDifferences.size;
         const totalDifferences = differences.length;
         const currentOriginalUrl = originalImageCloudinaryUrl;  
         const currentModifiedUrl = modifiedImageCloudinaryUrl;
+
+        let finalTimeTaken = 0;
+        if (gameMode === 'timeAttack' && gameStartTimeRef.current) {
+            finalTimeTaken = (Date.now() - gameStartTimeRef.current) / 1000;
+        }
 
         setFoundDifferences(new Set(differences.map((d) => d.id))); // Reveal all differences
 
@@ -808,20 +903,31 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     setShowGameHistory(false);
   };
 
+  const handleGameModeChange = (mode) => {
+    if (gameStarted) {
+      // Prevent changing mode mid-game
+      setMessage("Please restart the game to change modes.");
+      return;
+    }
+    setGameMode(mode);
+    setMessage(`Game mode set to: ${mode === 'classic' ? 'Classic' : 'Time Attack'}`);
+    resetGameState(); // Reset game state when mode changes
+  };
 
-const handleTestSession = async () => {
-        try {
-            console.log("--- Frontend: Testing session ---");
-            console.log("Frontend: isLoggedIn =", isLoggedIn);
-            console.log("Frontend: currentUser =", currentUser);
-            const response = await axios.get(`${BACKEND_URL}/test-session`, { withCredentials: true });
-            console.log("Frontend: /test-session response:", response.data);
-            setMessage(`Session test: ${response.data.message}. User ID: ${response.data.user_id}`);
-        } catch (err) {
-            console.error("Frontend: Error testing session:", err);
-            setError(err.response?.data?.error || "Failed to test session.");
-        }
-    };
+  const handleTestSession = async () => {
+    try {
+        console.log("--- Frontend: Testing session ---");
+        console.log("Frontend: isLoggedIn =", isLoggedIn);
+        console.log("Frontend: currentUser =", currentUser);
+        const response = await axios.get(`${BACKEND_URL}/test-session`, { withCredentials: true });
+        console.log("Frontend: /test-session response:", response.data);
+        setMessage(`Session test: ${response.data.message}. User ID: ${response.data.user_id}`);
+    } catch (err) {
+        console.error("Frontend: Error testing session:", err);
+        setError(err.response?.data?.error || "Failed to test session.");
+    }
+  };
+
   return (
     // pollinate AI model
     <>
@@ -869,6 +975,39 @@ const handleTestSession = async () => {
           />
         ) : (
           <>
+            {/* Game Mode Selection Panel */}
+            <Row className="mb-3 justify-content-center">
+                <Col md={8}>
+                    <Card className="game-mode-panel p-3 shadow-sm rounded-3">
+                        <Card.Body className="d-flex justify-content-center align-items-center flex-wrap">
+                            <h5 className="mb-0 me-3">Game Mode:</h5>
+                            <Button 
+                                variant={gameMode === 'classic' ? 'primary' : 'outline-primary'} 
+                                onClick={() => handleGameModeChange('classic')}
+                                className="me-2 mb-2 mb-md-0 rounded-pill"
+                                disabled={gameStarted}
+                            >
+                                Classic
+                            </Button>
+                            <Button 
+                                variant={gameMode === 'timeAttack' ? 'danger' : 'outline-danger'} 
+                                onClick={() => handleGameModeChange('timeAttack')}
+                                className="rounded-pill"
+                                disabled={gameStarted}
+                            >
+                                Time Attack
+                            </Button>
+                            {/* Timer Display */}
+                            {gameMode === 'timeAttack' && gameStarted && (
+                                <div className="ms-md-auto mt-2 mt-md-0 text-center">
+                                    <h5 className="mb-0">Time Left: <Badge bg="warning" text="dark" className="fs-5">{timeLeft}s</Badge></h5>
+                                </div>
+                            )}
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
+
             <Row className="mb-3 justify-content-center">
               {/* Left Image Card: Original Image */}
               <Col md={6} className="mb-3">

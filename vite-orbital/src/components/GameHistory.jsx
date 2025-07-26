@@ -131,7 +131,7 @@ function GameHistory({ currentUser, onBackToGame }) {
               </td>
               <td>{game.score}</td>
               <td>{game.total}</td>
-              <td>{game.time_taken.toFixed(2)}</td>
+              <td>{game.time_taken > 0 ? game.time_taken.toFixed(2) : "N/A"}</td>
             </tr>
           ))}
         </tbody>
