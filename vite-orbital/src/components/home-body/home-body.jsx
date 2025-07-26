@@ -23,16 +23,12 @@ import { v4 as uuidv4 } from "uuid";
 
 const BACKEND_URL = "https://orbital-2025-backend.onrender.com"; // Connecting to Render-hosted backend
 
-// const BACKEND_URL = "http://localhost:5000"; // Connecting to Flask backend
-
 const TIME_LIMIT_SECONDS = 30;
 
 function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [originalImageUrl, setOriginalImageUrl] = useState("");
   const [modifiedImageUrl, setModifiedImageUrl] = useState("");
-  // const [localOriginalImagePath, setLocalOriginalImagePath] = useState("");
-  // const [localModifiedImagePath, setLocalModifiedImagePath] = useState("");
 
   const [originalImageCloudinaryUrl, setOriginalImageCloudinaryUrl] = useState(""); 
   const [modifiedImageCloudinaryUrl, setModifiedImageCloudinaryUrl] = useState("");
@@ -59,11 +55,6 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const timerIntervalRef = useRef(null);
   const gameStartTimeRef = useRef(null);
 
-  // // Authentication states
-  // const [isLoggedIn, setIsLoggedIn] = useState(false);
-  // const [currentUser, setCurrentUser] = useState(null);
-  // const [authError, setAuthError] = useState('');
-
   // States for utilizing Pollinate AI
   const [showPollinateModal, setShowPollinateModal] = useState(false);
   const [pollinateImage, setPollinateImage] = useState(""); // url of generated image
@@ -74,32 +65,11 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const fileInputRef = useRef(null);
   const MAX_WRONG_CLICKS = 7;
 
-  // // Initial check for login status on component mount
-  // useEffect(() => {
-  //     const checkLoginStatus = async () => {
-  //         try {
-  //             const response = await axios.get(`${BACKEND_URL}/user_stats`, { withCredentials: true });
-  //             setIsLoggedIn(true);
-  //             setCurrentUser(response.data);
-  //             setAuthError('');
-  //         } catch (err) {
-  //             console.error("Error checking login status:", err);
-  //             setIsLoggedIn(false);
-  //             setCurrentUser(null);
-  //             // No specific error message for initial check, just means not logged in
-  //         }
-  //     };
-  //     checkLoginStatus();
-  //   }, []); // Empty dependency array, runs once on mount
-
-
-
   // Helper function to extract public ID from Cloudinary URL
   const getPublicIdFromUrl = (url) => {
     if (!url) return null;
     const parts = url.split('/');
-    // Cloudinary URL format: .../upload/v<version>/<folder>/<public_id>.<extension>
-    // We need to get <folder>/<public_id>
+
     const uploadIndex = parts.indexOf('upload');
     if (uploadIndex === -1 || uploadIndex + 2 >= parts.length) return null; // Ensure 'upload' and enough parts after it
     const publicIdWithExtension = parts.slice(uploadIndex + 2).join('/');
@@ -108,16 +78,6 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
 
   // Function to send POST request to start deleting guest files (now Cloudnary assets)
   const cleanupGuestImages = async (publicIds = []) => {
-    // try {
-    //   await axios.post(
-    //     `${BACKEND_URL}/cleanup-guest-files`,
-    //     {},
-    //     { withCredentials: true }
-    //   );
-    //   console.log("Temporary guest images cleaned up.");
-    // } catch (err) {
-    //   console.error("Failed to clean up guest images", err);
-    // }
     try {
       await axios.post(
         `${BACKEND_URL}/cleanup-guest-files`,
@@ -144,16 +104,16 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   };
 
   // Function to save game data and images (now Cloudinary URLs)
-  const saveGameDataAndImages = async (scoreValue, totalValue, originalUrl, modifiedUrl, timeTaken = 0) => { 
-    if (!isLoggedIn || !currentUser?.user_id) {
-      console.warn("Attempted to save game data without being logged in.");
-      return;
-    }
+  const saveGameDataAndImages = async (scoreValue, totalValue, originalUrl, modifiedUrl, timeTaken = 0) => { 
+    if (!isLoggedIn || !currentUser?.user_id) {
+      console.warn("Attempted to save game data without being logged in.");
+      return;
+    }
 
-    if (!originalUrl || !modifiedUrl) { 
-      console.error("Missing Cloudinary URLs for saving.");
-      return;
-    }
+    if (!originalUrl || !modifiedUrl) { 
+      console.error("Missing Cloudinary URLs for saving.");
+      return;
+    }
 
     console.log("Saving game data. Payload:", { 
         original_image_cloudinary_url: originalUrl,
@@ -163,72 +123,30 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         time_taken: timeTaken,
     });
 
-    try {
-      const response = await axios.post(`${BACKEND_URL}/save-game`, {
-        original_image_cloudinary_url: originalUrl, 
-        modified_image_cloudinary_url: modifiedUrl, 
-        score: scoreValue, 
-        total: totalValue, 
-        time_taken: timeTaken,
-      }, { withCredentials: true });
+    try {
+    const response = await axios.post(`${BACKEND_URL}/save-game`, {
+    original_image_cloudinary_url: originalUrl, 
+    modified_image_cloudinary_url: modifiedUrl, 
+    score: scoreValue, 
+    total: totalValue, 
+    time_taken: timeTaken,
+    }, { withCredentials: true });
 
-      setMessage(response.data.message);
-      console.log("Game saved to DB and images uploaded to Cloudinary:", response.data);
+    setMessage(response.data.message);
+    console.log("Game saved to DB and images uploaded to Cloudinary:", response.data);
 
-      // IMPORTANT: Removed the cleanup call here. Images remain for completed games.
-      // if (isLoggedIn && originalImagePublicId && modifiedImagePublicId) {
-      //   await deleteUserTempImages([originalImagePublicId, modifiedImagePublicId]);
-      // }
 
-    } catch (err) {
-      console.error("Failed to save game data or upload images to Cloudinary:", err);
-      if (err.response && err.response.data && err.response.data.error) {
-        setError(
-          `Failed to save game data: ${err.response.data.error}`
-        );
-      } else {
-        setError("Failed to save game data. Please try again.");
-      }
-    }
+    } catch (err) {
+      console.error("Failed to save game data or upload images to Cloudinary:", err);
+      if (err.response && err.response.data && err.response.data.error) {
+        setError(
+        `Failed to save game data: ${err.response.data.error}`
+      );
+      } else {
+       setError("Failed to save game data. Please try again.");
+      }
+    }
   };
-
-  // // Function to save game data and images to Cloudinary 
-  // const saveGameDataAndImages = async (scoreValue, totalValue, originalPath, modifiedPath) => {
-  //   if (!isLoggedIn || !currentUser?.user_id) {
-  //     console.warn("Attempted to save game data without being logged in.");
-  //     return;
-  //   }
-
-  //   if (!localOriginalImagePath || !localModifiedImagePath) {
-  //     console.error("Missing local image paths for Cloudinary upload.");
-  //     return;
-  //   }
-
-  //   console.log("Saving game data. Payload:", { // NEW: Log payload
-  //       original_image_local_path: originalPath,
-  //       modified_image_local_path: modifiedPath,
-  //       score: scoreValue,
-  //       total: totalValue,
-  //       time_taken: 0,
-  //   });
-
-  //   try {
-  //     const response = await axios.post(`${BACKEND_URL}/save-game`, {
-  //       original_image_path: localOriginalImagePath,
-  //       modified_image_path: localModifiedImagePath,
-  //       score: scoreValue,
-  //       total: totalValue,
-  //       time_taken: 0,
-  //     }, { withCredentials: true });
-
-  //     setMessage(response.data.message);
-  //     console.log("Game saved to DB and images uploaded to Cloudinary:", response.data);
-
-  //   } catch (err) {
-  //     console.error("Failed to save game data or upload images to Cloudinary:", err);
-  //     setError(err.response?.data?.error || "Failed to save game data.");
-  //   }
-  // };
 
   // Function to draw circles on the canvas
   const drawCircles = useCallback(() => {
@@ -381,13 +299,6 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     }
   }, [clickAttempts, drawCircles]);
 
-  // useEffect(() => {
-  //   console.log("STATE CHANGE - originalImagePublicId:", originalImagePublicId);
-  // }, [originalImagePublicId]);
-
-  // useEffect(() => {
-  //   console.log("STATE CHANGE - modifiedImagePublicId:", modifiedImagePublicId);
-  // }, [modifiedImagePublicId]);
 
   useEffect(() => {
     currentPublicIdsRef.current = { 
@@ -460,18 +371,12 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     gameStartTimeRef.current = null; // Reset game start time
 
     const publicIdsToClean = [];
-    // if (originalImagePublicId) publicIdsToClean.push(originalImagePublicId);
-    // if (modifiedImagePublicId) publicIdsToClean.push(modifiedImagePublicId);
     if (currentPublicIdsRef.current.original) publicIdsToClean.push(currentPublicIdsRef.current.original);
     if (currentPublicIdsRef.current.modified) publicIdsToClean.push(currentPublicIdsRef.current.modified);
 
     console.log("DEBUG: publicIdsToClean array:", publicIdsToClean);
 
     // CONDITIONAL CLEANUP LOGIC
-    // Delete if:
-    // 1. It's a guest user (isLoggedIn is false)
-    // 2. It's a logged-in user AND the game HAS NOT ENDED (i.e., mid-game restart)
-    // 3. There are actually public IDs to clean.
     const shouldDelete = publicIdsToClean.length > 0 && (!isLoggedIn || !gameEnded);
     
     if (shouldDelete) {
@@ -498,8 +403,6 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     setSelectedFile(null);
     setOriginalImageUrl("");
     setModifiedImageUrl("");
-    // setLocalOriginalImagePath("");
-    // setLocalModifiedImagePath("");
     setOriginalImageCloudinaryUrl("");
     setModifiedImageCloudinaryUrl("");
     setOriginalImagePublicId(""); // Clear public IDs from state AFTER cleanup
@@ -522,73 +425,15 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     console.log("Game state reset complete.");
   }; 
 
-  // // Callback for successful login from LoginRegisterTabs
-  // const handleLoginSuccess = (userData) => {
-  //   setIsLoggedIn(true);
-  //   setCurrentUser(userData);
-  //   setAuthError(''); // Clear any previous auth errors
-  //   setMessage('Login successful!');
-  //   resetGameState(); // Reset game state on successful login
-  // };
-
-  // // Callback for successful registration (no direct user data needed)
-  // const handleRegisterSuccess = () => {
-  //   setAuthError(''); // Clear any previous auth errors
-  // };
-
-  // // Handle logout
-  // const handleLogout = async () => {
-  //   try {
-  //       await axios.post(`${BACKEND_URL}/logout`, {}, { withCredentials: true });
-  //       setIsLoggedIn(false);
-  //       setCurrentUser(null);
-  //       setAuthError('');
-  //       setMessage('You have been logged out.');
-  //       resetGameState(); // Reset game state on logout
-  //   } catch (err) {
-  //       console.error("Logout error:", err);
-  //       setAuthError(err.response?.data?.message || 'Logout failed.');
-  //   }
-  // };
-
-  // // Update user stats after a game ends
-  // const updateUserStats = async (differencesFound, gameWon) => {
-  //   if (!isLoggedIn || !currentUser?.user_id) return;
-
-  //   try {
-  //     const response = await axios.post(`${BACKEND_URL}/update_stats`, {
-  //         differencesFound,
-  //         gameWon
-  //     }, { withCredentials: true });
-
-  //     // Fetch updated user stats to reflect changes in UI
-  //     const updatedUserResponse = await axios.get(`${BACKEND_URL}/user_stats`, { withCredentials: true });
-  //     setCurrentUser(updatedUserResponse.data);
-  //     setMessage(prev => prev + " Your stats have been updated!");
-  //   } catch (err) {
-  //       console.error("Failed to update user stats:", err);
-  //       setError("Failed to update game statistics.");
-  //   }
-  // }
 
   const handleFileChange = async (event) => {
     const file = event.target.files[0];
     setSelectedFile(file);
 
-    // // If a previous game was in progress and user is logged in, clean up old Cloudinary images
-    // // This handles uploading a new image before finishing the previous one
-    // if (isLoggedIn && originalImagePublicId && modifiedImagePublicId) {
-    //   await deleteUserTempImages([originalImagePublicId, modifiedImagePublicId]);
-    // }
-
     // Reset game state when a new file is selected
     setModifiedImageUrl("");
-    // setLocalOriginalImagePath("");
-    // setLocalModifiedImagePath("");
     setOriginalImageCloudinaryUrl(""); // Clear Cloudinary URLs
     setModifiedImageCloudinaryUrl(""); // Clear Cloudinary URLs
-    // setOriginalImagePublicId(""); // Clear public IDs
-    // setModifiedImagePublicId(""); // Clear public IDs
     setDifferences([]);
     setFoundDifferences(new Set());
     setClickAttempts([]);
@@ -641,18 +486,14 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         originalImageUrl: backendOriginalUrl,
         modifiedImageUrl,
         original_image_cloudinary_url, // Now expecting Cloudinary URLs
-        modified_image_cloudinary_url, // Now expecting Cloudinary URLs
-        original_public_id, // New: Public ID from backend
-        modified_public_id, // New: Public ID from backend
-        // originalImageLocalPath,
-        // modifiedImageLocalPath,
+        modified_image_cloudinary_url, 
+        original_public_id, // Public ID from backend
+        modified_public_id, 
         rawDifferencesForFrontendDemo,
       } = response.data;
 
       console.log("Frontend received originalImageUrl:", backendOriginalUrl);
       console.log("Frontend received modifiedImageUrl:", modifiedImageUrl);
-      // console.log("Frontend received originalImageLocalPath:", originalImageLocalPath);
-      // console.log("Frontend received modifiedImageLocalPath:", modifiedImageLocalPath);
       console.log("Frontend received original_image_cloudinary_url (for save):", original_image_cloudinary_url);
       console.log("Frontend received modified_image_cloudinary_url (for save):", modified_image_cloudinary_url);
       console.log("Frontend received original_public_id (for cleanup):", original_public_id);
@@ -666,18 +507,13 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
       setOriginalImageUrl(backendOriginalUrl);
       setModifiedImageUrl(modifiedImageUrl);
 
-      // setOriginalImageUrl(`${BACKEND_URL}${backendOriginalUrl}`);
-      // setModifiedImageUrl(`${BACKEND_URL}${modifiedImageUrl}`);
       setOriginalImageCloudinaryUrl(original_image_cloudinary_url);
       setModifiedImageCloudinaryUrl(modified_image_cloudinary_url);
       setOriginalImagePublicId(original_public_id); // Store public ID
-      setModifiedImagePublicId(modified_public_id); // Store public ID
+      setModifiedImagePublicId(modified_public_id);
       currentPublicIdsRef.current = { original: original_public_id, modified: modified_public_id };
 
       console.log("DEBUG: Public IDs set after upload. State:", { originalImagePublicId, modifiedImagePublicId }, "Ref:", currentPublicIdsRef.current);
-
-      // setLocalOriginalImagePath(originalImageLocalPath);
-      // setLocalModifiedImagePath(modifiedImageLocalPath);
 
       // Assign a unique ID to each difference for tracking found differences
       const differencesWithIds = rawDifferencesForFrontendDemo.map(
@@ -784,10 +620,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         // Check if all differences are found
         const currentScore = foundDifferences.size + 1;
         const totalDifferences = differences.length;
-        // const currentOriginalPath = localOriginalImagePath;
-        // const currentModifiedPath = localModifiedImagePath;
         const currentOriginalUrl = originalImageCloudinaryUrl; // Use Cloudinary URL
-        const currentModifiedUrl = modifiedImageCloudinaryUrl; // Use Cloudinary URL
+        const currentModifiedUrl = modifiedImageCloudinaryUrl; 
 
 
 
@@ -1057,15 +891,6 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
                   setShowConfirm={setShowConfirm}
                 />
               </Col>
-            </Row>
-
-              {/* Test Session Button */}
-             <Row className="justify-content-center mt-2">
-                <Col md={4} className="d-flex justify-content-center">
-                    <Button onClick={handleTestSession} variant="secondary" className="w-100">
-                        Test Session
-                    </Button>
-                </Col>
             </Row>
           </>
         )}

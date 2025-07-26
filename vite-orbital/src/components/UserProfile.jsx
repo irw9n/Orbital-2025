@@ -13,7 +13,7 @@ function UserProfile({ currentUser, onLogout, onShowGameHistory }) {
         <Card className="p-4 mb-4 shadow-sm rounded-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h5>Hello, {username || 'Guest'}!</h5>
-                <div className="d-flex gap-2"> {/* Use gap-2 for spacing between buttons */}
+                <div className="d-flex gap-2">
                     <Button variant="outline-primary" size="sm" onClick={onShowGameHistory}>
                         <History size={16} className="me-2" />Game History
                     </Button>

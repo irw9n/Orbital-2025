@@ -5,7 +5,7 @@ import axios from "axios";
 export default function PollinateModal({
   show,
   onClose,
-  onImageReady,   // callback(pollinateImageUrl)
+  onImageReady,  // callback(pollinateImageUrl)
   backendUrl
 }) {
   const [prompt, setPrompt] = useState("");
@@ -45,7 +45,6 @@ export default function PollinateModal({
       const blob = await res.blob();
       const file = new File([blob], "pollinate_image.png", { type: blob.type });
       onImageReady(URL.createObjectURL(file)); // For preview in LeftUploadCard
-      // Optionally, you can also pass the File object up if you want to auto-upload
       onClose();
     } catch (err) {
       setError("Failed to use generated image.");

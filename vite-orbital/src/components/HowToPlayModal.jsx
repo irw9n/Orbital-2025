@@ -5,10 +5,10 @@ import './HowToPlayModal.css';
 function HowToPlayModal({ show, onClose }) {
   return (
     <Modal show={show} onHide={onClose} centered size="lg">
-      <Modal.Header closeButton>
+      <Modal.Header closeButton className="pb-2">
         <Modal.Title>How To Play</Modal.Title>
       </Modal.Header>
-      <Modal.Body>
+      <Modal.Body className="py-0">
         <h5>Welcome to Spot The Difference!</h5>
         <p>Your goal is simple: find all the differences between two seemingly identical images before you run out of attempts or time (in Time Attack mode).</p>
 
@@ -46,7 +46,7 @@ function HowToPlayModal({ show, onClose }) {
 
         <p>Have fun and sharpen your observation skills!</p>
       </Modal.Body>
-      <Modal.Footer>
+      <Modal.Footer className="py-1">
         <Button variant="primary" onClick={onClose}>
           Got It!
         </Button>

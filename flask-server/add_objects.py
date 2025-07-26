@@ -103,8 +103,6 @@ def paste_object(base_img, object_path, target_coordinate, alpha=0.5, intended_w
     object_img = cv2.merge((b, g, r))
     mask = a
 
-    # object_rgb = color_adjust_object(object_img, base_img, target_coordinate)
-
     # get the dimensions of the object image
     height, width, c = object_img.shape
     # unpack target coordinates to place the object in

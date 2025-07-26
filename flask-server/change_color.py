@@ -197,40 +197,6 @@ def contours(num_of_changes):
         cv2.putText(img_ignored_area, f"Area: {cv2.contourArea(contour)}", (Cx + 10, Cy - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 1)
 
     
-    # Visualization tools of processing steps
-    # plt.figure(figsize=(12, 8))
-
-    # plt.subplot(3, 3, 1)
-    # plt.title("Original Image")
-    # plt.imshow(img)
-
-    # plt.subplot(3, 3, 2)
-    # plt.title("blurred Image")
-    # plt.imshow(blurred_img, cmap="gray")
-
-    # plt.subplot(3, 3, 3)
-    # plt.title("Thresholded Gaussian")
-    # plt.imshow(thresh, cmap="gray")
-
-    # plt.subplot(3, 3, 4)
-    # plt.title("Morphed Image")
-    # plt.imshow(final_img, cmap="gray")
-
-    # plt.subplot(3, 3, 5)
-    # plt.title("Contours with good area")
-    # plt.imshow(img_area)
-
-    # plt.subplot(3, 3, 6)
-    # plt.title("Contours ignored")
-    # plt.imshow(img_ignored_area)
-
-    # plt.subplot(3, 3, 7)
-    # plt.title("Contours with good area")
-    # plt.imshow(cv2.drawContours(np.zeros_like(img.copy()), good_contours, -1, (0, 255, 0), 3))
-
-    # plt.subplot(3, 3, 8)
-    # plt.title("Contours ignored")
-    # plt.imshow(cv2.drawContours(np.zeros_like(img.copy()), ignored_contours, -1, (255, 0, 0), 3))
 
     contours_indices_picked = []
 
