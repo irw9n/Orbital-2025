@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Container, Table, Spinner, Alert, Button } from "react-bootstrap";
+import ImagePreviewModal from "../ImagePreviewModal/ImagePreviewModal";
 import "./GameHistory.css"; 
 
 const BACKEND_URL = "https://orbital-2025-backend.onrender.com";
@@ -9,6 +10,9 @@ function GameHistory({ currentUser, onBackToGame }) {
   const [historyData, setHistoryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
 
   useEffect(() => {
     const fetchGameHistory = async () => {
@@ -39,6 +43,16 @@ function GameHistory({ currentUser, onBackToGame }) {
 
     fetchGameHistory();
   }, [currentUser]); // Re-fetch when currentUser changes
+
+  const handleImageClick = (imageUrl) => {
+    setPreviewImageUrl(imageUrl);
+    setShowPreviewModal(true);
+  };
+
+  const handleClosePreviewModal = () => {
+    setShowPreviewModal(false);
+    setPreviewImageUrl(""); // Clear the image URL when closing
+  };
 
   if (loading) {
     return (
@@ -102,6 +116,8 @@ function GameHistory({ currentUser, onBackToGame }) {
                   src={game.original_image}
                   alt="Original"
                   className="history-thumbnail"
+                  onClick={() => handleImageClick(game.original_image)}
+                  style={{ cursor: 'pointer' }}
                 />
               </td>
               <td>
@@ -109,6 +125,8 @@ function GameHistory({ currentUser, onBackToGame }) {
                   src={game.modified_image}
                   alt="Modified"
                   className="history-thumbnail"
+                  onClick={() => handleImageClick(game.modified_image)}
+                  style={{ cursor: 'pointer' }}
                 />
               </td>
               <td>{game.score}</td>
@@ -123,6 +141,13 @@ function GameHistory({ currentUser, onBackToGame }) {
           Back to Game
         </Button>
       </div>
+
+      <ImagePreviewModal
+        show={showPreviewModal}
+        imageUrl={previewImageUrl}
+        onClose={handleClosePreviewModal}
+      />
+      
     </Container>
   );
 }
