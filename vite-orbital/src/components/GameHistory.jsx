@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Container, Table, Spinner, Alert, Button } from "react-bootstrap";
+import { Container, Table, Spinner, Alert, Button, Row, Col} from "react-bootstrap";
 import ImagePreviewModal from "./ImagePreviewModal";
 import "./GameHistory.css"; 
 
@@ -95,10 +95,16 @@ function GameHistory({ currentUser, onBackToGame }) {
 
   return (
     <Container className="my-5 game-history-container">
-      <h2 className="text-center mb-4">Game History for {historyData.username}</h2>
-      <Button variant="primary" onClick={onBackToGame}>
-          Back to Game
-        </Button>
+    <Row className="d-flex align-items-center mb-4">
+        <Col className="d-flex justify-content-center flex-grow-1">
+            <h2 className="text-center mb-4">Game History for {historyData.username}</h2>
+        </Col>
+        <Col xs="auto" className="ms-auto">
+            <Button variant="primary" onClick={onBackToGame}>
+                Back to Game
+            </Button>
+        </Col>
+    </Row>
       <Table striped bordered hover responsive className="game-history-table">
         <thead>
           <tr>
