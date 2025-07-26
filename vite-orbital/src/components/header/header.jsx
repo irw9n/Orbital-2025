@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import './header.css';
 import {Container, Nav, Navbar, NavDropdown} from 'react-bootstrap';
 import { LogIn, UserPlus, User, LogOut, Award } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import HowToPlayModal from '../HowToPlayModal';
 
 const Header = ({ isLoggedIn, currentUser, onLoginClick, onRegisterClick, onLogout }) => {
@@ -15,7 +14,7 @@ const Header = ({ isLoggedIn, currentUser, onLoginClick, onRegisterClick, onLogo
       <>
         <Navbar expand="lg" className="bg-body-tertiary">
           <Container>
-            <Navbar.Brand as={Link} to="/">spotthedifference</Navbar.Brand>
+            <Navbar.Brand href="#home">spotthedifference</Navbar.Brand>
             <Navbar.Toggle aria-controls="basic-navbar-nav" />
             <Navbar.Collapse id="basic-navbar-nav">
               <Nav className="ms-auto">
