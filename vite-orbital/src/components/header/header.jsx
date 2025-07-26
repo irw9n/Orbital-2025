@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import './header.css';
 import {Container, Nav, Navbar, NavDropdown} from 'react-bootstrap';
 import { LogIn, UserPlus, User, LogOut, Award } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import HowToPlayModal from '../HowToPlayModal';
 
 const Header = ({ isLoggedIn, currentUser, onLoginClick, onRegisterClick, onLogout }) => {
