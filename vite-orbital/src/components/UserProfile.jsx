@@ -8,7 +8,7 @@ function UserProfile({ currentUser, onLogout }) {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <h5>Hello, {currentUser?.username || 'Guest'}!</h5>
                 <div className="d-flex gap-2"> {/* Use gap-2 for spacing between buttons */}
-                    <Button variant="outline-primary" size="sm">
+                    <Button variant="outline-primary" size="sm" onClick={onShowGameHistory}>
                         <History size={16} className="me-2" />Game History
                     </Button>
                     <Button variant="outline-danger" size="sm" onClick={onLogout}>

@@ -16,6 +16,7 @@ import RightUploadCard from "../RightUploadCards";
 import RestartButton from "../RestartButton";
 import PollinateModal from "../PollinateModal";
 import UserProfile from "../UserProfile";
+import GameHistory from "../GameHistory"; 
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
@@ -30,8 +31,8 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   // const [localOriginalImagePath, setLocalOriginalImagePath] = useState("");
   // const [localModifiedImagePath, setLocalModifiedImagePath] = useState("");
 
-  const [originalImageCloudinaryUrl, setOriginalImageCloudinaryUrl] = useState(""); 
-  const [modifiedImageCloudinaryUrl, setModifiedImageCloudinaryUrl] = useState("");
+  const [originalImageCloudinaryUrl, setOriginalImageCloudinaryUrl] = useState(""); 
+  const [modifiedImageCloudinaryUrl, setModifiedImageCloudinaryUrl] = useState("");
  
   const [originalImagePublicId, setOriginalImagePublicId] = useState("");
   const [modifiedImagePublicId, setModifiedImagePublicId] = useState("");
@@ -47,6 +48,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   const [gameStarted, setGameStarted] = useState(false);
   const [gameEnded, setGameEnded] = useState(true);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showGameHistory, setShowGameHistory] = useState(false);
 
   // // Authentication states
   // const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -179,7 +181,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         setError("Failed to save game data. Please try again.");
       }
     }
-  };
+  };
 
   // // Function to save game data and images to Cloudinary 
   // const saveGameDataAndImages = async (scoreValue, totalValue, originalPath, modifiedPath) => {
@@ -791,12 +793,16 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
   
   // Function to trigger the hidden file input
   const triggerFileInput = () => {
-  resetGameState();               
-  if (fileInputRef.current) {
-    fileInputRef.current.value = "";
-    fileInputRef.current.click();     
-  }
-};
+    resetGameState();               
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+      fileInputRef.current.click();     
+    }
+  };
+
+  const handleShowGameHistory = () => {
+    setShowGameHistory(true);
+  };
 
 
 const handleTestSession = async () => {
@@ -838,7 +844,10 @@ const handleTestSession = async () => {
           <Col md={12}>
             {/* User Profile display for logged-in users */}
             {isLoggedIn && currentUser && (
-                <UserProfile currentUser={currentUser} onLogout={onLogout} />
+                <UserProfile 
+                currentUser={currentUser} 
+                onLogout={onLogout} 
+                onShowGameHistory={handleShowGameHistory}/>
             )}
 
             {/*Messages & Alerts Card */}
@@ -848,7 +857,13 @@ const handleTestSession = async () => {
         </Row>
 
 
-        {/* Main Control Card (for file selection and messages)*/}
+        {/* Main Control Card with Conditional Rendering: Game History or Main Game*/}
+        {showGameHistory ? (
+          <GameHistory 
+            currentUser={currentUser} 
+            onBackToGame={handleBackToGame} 
+          />
+        ) : (
           <>
             <Row className="mb-3 justify-content-center">
               {/* Left Image Card: Original Image */}
@@ -909,6 +924,7 @@ const handleTestSession = async () => {
                 </Col>
             </Row>
           </>
+        )}
       </Container>
     </>
   );

@@ -1,4 +1,4 @@
-print("--- APP.PY VERSION 35.0 LOADED (FINAL CLOUDINARY FOLDER DELETION RESPONSE FIX) ---")
+print("--- APP.PY VERSION 36.0 LOADED (GAME HISTORY ORDERING & TIMESTAMP VERIFICATION) ---")
 import sys
 # import logging
 # logging.basicConfig(level=logging.INFO, stream=sys.stdout) 
@@ -492,13 +492,17 @@ def save_game():
         session.pop("current_game_temp_files", None)
         session.modified = True
 
+        current_utc_time = datetime.now(timezone.utc)
+        print(f"DEBUG: Setting played_at for GameRecord to: {current_utc_time}")
+
         game = GameRecord(
             user_id=user_id,
             original_image_path=original_url,
             modified_image_path=modified_url,
             score=score,
             total_differences=total,
-            time_taken=time_taken
+            time_taken=time_taken,
+            played_at=current_utc_time
         )
         db.session.add(game)
         db.session.commit()
@@ -519,16 +523,18 @@ def game_history(user_id):
         return jsonify({"error": "Unauthorized: Cannot view another user's history."}), 403
     
     user = User.query.get_or_404(user_id)
-    games = [{
+     # Order by played_at in descending order (latest first)
+    games = user.game_records.order_by(GameRecord.played_at.desc()).all() # NEW: Ordering
+    games_data = [{ # Renamed to avoid conflict with 'games' variable
         'original_image': g.original_image_path,
         'modified_image': g.modified_image_path,
         'score': g.score,
         'total': g.total_differences,
         'time_taken': g.time_taken,
-        'played_at': g.played_at.isoformat()
-    } for g in user.game_records]
+        'played_at': g.played_at.isoformat() # Convert datetime to ISO format string
+    } for g in games]
 
-    return jsonify({'username': user.username, 'games': games}), 200
+    return jsonify({'username': user.username, 'games': games_data}), 200
 
 
 @app.route('/test-session', methods=['GET'])
