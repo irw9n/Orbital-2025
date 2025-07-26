@@ -115,6 +115,7 @@ function App() {
             authError={authError}
             setAuthError={setAuthError}
             initialTab={authInitialTab}
+            onTabChange={setAuthInitialTab}
           />
         </Modal.Body>
       </Modal>
