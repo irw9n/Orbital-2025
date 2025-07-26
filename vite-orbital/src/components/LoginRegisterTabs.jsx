@@ -5,7 +5,7 @@ import axios from 'axios';
 
 const BACKEND_URL = "https://orbital-2025-backend.onrender.com";
 
-function LoginRegisterTabs({ onLoginSuccess, onRegisterSuccess, authError, setAuthError, initialTab}) {
+function LoginRegisterTabs({ onLoginSuccess, onRegisterSuccess, authError, setAuthError, initialTab, onTabChange }) {
     const [activeTab, setActiveTab] = useState('login');
     const [regUsername, setRegUsername] = useState('');
     const [regPassword, setRegPassword] = useState('');
@@ -18,7 +18,16 @@ function LoginRegisterTabs({ onLoginSuccess, onRegisterSuccess, authError, setAu
         setActiveTab(initialTab || 'login');
         setMessage('');
         setAuthError('');
-    }, [initialTab]);
+    }, [initialTab, setAuthError]);
+
+    const handleTabSelect = (k) => {
+        setActiveTab(k);
+        if (onTabChange) {
+            onTabChange(k);
+        }
+        setAuthError('');
+        setMessage('');
+    }
 
     const handleRegister = async (event) => {
         event.preventDefault();
@@ -40,6 +49,9 @@ function LoginRegisterTabs({ onLoginSuccess, onRegisterSuccess, authError, setAu
             
             setMessage(response.data.message + " You can now log in.");
             setActiveTab('login'); // Switch to login tab after successful registration
+            if (onTabChange) {
+                onTabChange('login');
+            }
             setRegUsername('');
             setRegPassword('');
             if (onRegisterSuccess) onRegisterSuccess(); // Callback to parent
@@ -87,7 +99,7 @@ function LoginRegisterTabs({ onLoginSuccess, onRegisterSuccess, authError, setAu
             {message && <Alert variant="info" className="mt-3">{message}</Alert>}
             {authError && <Alert variant="danger" className="mt-3">{authError}</Alert>}
 
-            <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k)} className="mb-3">
+            <Tabs activeKey={activeTab} onSelect={handleTabSelect} className="mb-3">
                 <Tab eventKey="login" title={<span><LogIn size={16} className="me-2" />Login</span>}>
                     <Form onSubmit={handleLogin} className="mt-3">
                         <Form.Group className="mb-3" controlId="loginUsername">
