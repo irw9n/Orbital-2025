@@ -804,6 +804,10 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     setShowGameHistory(true);
   };
 
+  const handleBackToGame = () => {
+    setShowGameHistory(false);
+  };
+
 
 const handleTestSession = async () => {
         try {
