@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Container, Table, Spinner, Alert, Button } from "react-bootstrap";
-import ImagePreviewModal from "../ImagePreviewModal/ImagePreviewModal";
+import ImagePreviewModal from "./ImagePreviewModal";
 import "./GameHistory.css"; 
 
 const BACKEND_URL = "https://orbital-2025-backend.onrender.com";
@@ -147,7 +147,7 @@ function GameHistory({ currentUser, onBackToGame }) {
         imageUrl={previewImageUrl}
         onClose={handleClosePreviewModal}
       />
-      
+
     </Container>
   );
 }
