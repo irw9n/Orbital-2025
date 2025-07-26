@@ -524,7 +524,7 @@ def game_history(user_id):
     
     user = User.query.get_or_404(user_id)
      # Order by played_at in descending order (latest first)
-    games = user.game_records.order_by(GameRecord.played_at.desc()).all() # NEW: Ordering
+    games = GameRecord.query.filter_by(user_id=user.id).order_by(GameRecord.played_at.desc()).all() # NEW: Ordering
     games_data = [{ # Renamed to avoid conflict with 'games' variable
         'original_image': g.original_image_path,
         'modified_image': g.modified_image_path,
