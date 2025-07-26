@@ -95,7 +95,7 @@ function GameHistory({ currentUser, onBackToGame }) {
 
   return (
     <Container className="my-5 game-history-container">
-    <Row className="d-flex align-items-center mb-4">
+    <Row className="d-flex align-items-center mb-0">
         <Col className="d-flex justify-content-center flex-grow-1">
             <h2 className="text-center mb-4">Game History for {historyData.username}</h2>
         </Col>
