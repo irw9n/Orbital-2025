@@ -335,7 +335,11 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     console.log("Time ran out! Ending game.");
     setGameStarted(false);
     setGameEnded(true);
-    setMessage(`Time's up! You found ${foundDifferences.size} out of ${differences.length} differences. The differences are now revealed.`);
+
+    const finalScore = foundDifferences.size; 
+    const totalDifferences = differences.length;
+
+    setMessage(`Time's up! You found ${finalScore} out of ${totalDifferences} differences. The differences are now revealed.`);
     setFoundDifferences(new Set(differences.map((d) => d.id))); // Reveal all differences
 
     let finalTimeTaken = 0;
@@ -346,13 +350,13 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     // Save game data for Time Attack mode
     if (isLoggedIn) {
         saveGameDataAndImages(
-            foundDifferences.size, 
-            differences.length, 
+            finalScore, 
+            totalDifferences, 
             originalImageCloudinaryUrl, 
             modifiedImageCloudinaryUrl, 
             finalTimeTaken
         );
-        onUpdateUserStats(foundDifferences.size, false); // Game not won by finding all diffs, but by time out
+        onUpdateUserStats(finalScore, false); // Game not won by finding all diffs, but by time out
     }
   }, [foundDifferences, differences, originalImageCloudinaryUrl, modifiedImageCloudinaryUrl, isLoggedIn]);
 
