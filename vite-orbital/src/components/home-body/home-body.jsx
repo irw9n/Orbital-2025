@@ -84,9 +84,9 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
         { public_ids: publicIds },
         { withCredentials: true }
       );
-      console.log("Temporary guest Cloudinary assets cleaned up.");
+      // console.log("Temporary guest Cloudinary assets cleaned up.");
     } catch (err) {
-      console.error("Failed to clean up guest Cloudinary assets", err);
+      // console.error("Failed to clean up guest Cloudinary assets", err);
     }
   };
 
@@ -97,9 +97,9 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     }
     try {
       await axios.post(`${BACKEND_URL}/delete-user-temp-images`, { public_ids: publicIds }, { withCredentials: true });
-      console.log("Logged-in user's previous temporary Cloudinary assets cleaned up.");
+      // console.log("Logged-in user's previous temporary Cloudinary assets cleaned up.");
     } catch (err) {
-      console.error("Failed to clean up logged-in user's temporary Cloudinary assets:", err);
+      // console.error("Failed to clean up logged-in user's temporary Cloudinary assets:", err);
     }
   };
 
@@ -133,7 +133,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     }, { withCredentials: true });
 
     setMessage(response.data.message);
-    console.log("Game saved to DB and images uploaded to Cloudinary:", response.data);
+    console.log("Attempt stats and images have been saved to Game History!", response.data);
 
 
     } catch (err) {
