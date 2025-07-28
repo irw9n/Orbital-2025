@@ -452,7 +452,7 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setError("Please select an image file first.");
+      // setError("Please select an image file first.");
       return;
     }
 
