@@ -336,29 +336,56 @@ function Homebody({ isLoggedIn, currentUser, onUpdateUserStats, onLogout }) {
     setGameStarted(false);
     setGameEnded(true);
 
-    const finalScore = foundDifferences.size; 
-    const totalDifferences = differences.length;
+    // const finalScore = foundDifferences.size; 
+    // const totalDifferences = differences.length;
 
-    setMessage(`Time's up! You found ${finalScore} out of ${totalDifferences} differences. The differences are now revealed.`);
-    setFoundDifferences(new Set(differences.map((d) => d.id))); // Reveal all differences
+    // setMessage(`Time's up! You found ${finalScore} out of ${totalDifferences} differences. The differences are now revealed.`);
+    // setFoundDifferences(new Set(differences.map((d) => d.id))); // Reveal all differences
 
-    let finalTimeTaken = 0;
-    if (gameStartTimeRef.current) {
-        finalTimeTaken = (Date.now() - gameStartTimeRef.current) / 1000;
-    }
+    // let finalTimeTaken = 0;
+    // if (gameStartTimeRef.current) {
+    //     finalTimeTaken = (Date.now() - gameStartTimeRef.current) / 1000;
+    // }
     
     // Save game data for Time Attack mode
-    if (isLoggedIn) {
-        saveGameDataAndImages(
-            finalScore, 
-            totalDifferences, 
-            originalImageCloudinaryUrl, 
-            modifiedImageCloudinaryUrl, 
-            finalTimeTaken
-        );
-        onUpdateUserStats(finalScore, false); // Game not won by finding all diffs, but by time out
-    }
-  }, [foundDifferences, differences, originalImageCloudinaryUrl, modifiedImageCloudinaryUrl, isLoggedIn]);
+    // if (isLoggedIn) {
+    //     saveGameDataAndImages(
+    //         finalScore, 
+    //         totalDifferences, 
+    //         originalImageCloudinaryUrl, 
+    //         modifiedImageCloudinaryUrl, 
+    //         finalTimeTaken
+    //     );
+    //     onUpdateUserStats(finalScore, false); // Game not won by finding all diffs, but by time out
+    // }
+    setFoundDifferences(prevFoundDifferences => {
+        const finalScore = prevFoundDifferences.size; 
+        const totalDifferences = differences.length;
+
+        console.log("DEBUG: finalScore captured in functional update:", finalScore);
+
+        setMessage(`Time's up! You found ${finalScore} out of ${totalDifferences} differences. The differences are now revealed.`);
+        
+        let finalTimeTaken = 0;
+        if (gameStartTimeRef.current) {
+            finalTimeTaken = (Date.now() - gameStartTimeRef.current) / 1000;
+        }
+        
+        if (isLoggedIn) {
+            saveGameDataAndImages(
+                finalScore, 
+                totalDifferences, 
+                originalImageCloudinaryUrl, 
+                modifiedImageCloudinaryUrl, 
+                finalTimeTaken
+            );
+            onUpdateUserStats(finalScore, false); 
+        }
+
+        // Return the new Set to reveal all differences visually
+        return new Set(differences.map((d) => d.id));
+    });
+  }, [foundDifferences, differences, originalImageCloudinaryUrl, modifiedImageCloudinaryUrl, isLoggedIn, saveGameDataAndImages, onUpdateUserStats]);
 
   // Completely clear the board
   const resetGameState = async () => {
