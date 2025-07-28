@@ -406,7 +406,7 @@ def save_game():
         db.session.add(game)
         db.session.commit()
 
-        return jsonify({'message': 'Game and images have been saved and uploaded to Game History!', 'record_id': game.id}), 201
+        return jsonify({'message': 'Game and images have been saved to Game History!', 'record_id': game.id}), 201
 
     except Exception as e:
         db.session.rollback()
